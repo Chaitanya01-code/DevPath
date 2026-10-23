@@ -37,3 +37,7 @@ The API is available at `http://localhost:8000`; interactive API documentation i
 ## Configuration
 
 `DATABASE_URL` must use the `postgresql+psycopg://` SQLAlchemy URL format. `CORS_ORIGINS` accepts a comma-separated list of browser origins. `ACCESS_TOKEN_EXPIRE_MINUTES` defaults to 60.
+
+## Roadmaps and administration
+
+The migration seeds the selectable domains and creates the roadmap, step, resource, and student-progress tables. Students can browse published roadmaps after signing in, track step completion, and change their learning domain. Admin-only management APIs are under `/api/v1/admin`; the frontend admin sign-in is at `/admin/login`. Roadmap resources accept HTTP(S) URLs only.

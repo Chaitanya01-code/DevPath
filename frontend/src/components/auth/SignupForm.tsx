@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 
+import { getApiErrorMessage } from '../../api/client'
 import { getDomains, signup } from '../../api/auth'
 import { signupSchema } from '../../lib/validations'
 import type { SignupFormValues } from '../../lib/validations'
@@ -37,7 +37,9 @@ export default function SignupForm() {
       })
       .catch((error: unknown) => {
         console.error('Unable to load learning domains.', error)
-        setDomainsError('Unable to load learning domains. Please refresh and try again.')
+        setDomainsError(
+          getApiErrorMessage(error, 'Unable to load learning domains. Please refresh and try again.'),
+        )
       })
       .finally(() => setDomainsLoading(false))
   }, [setValue])
@@ -56,10 +58,9 @@ export default function SignupForm() {
         state: { message: 'Your account is ready. Log in to get started.' },
       })
     } catch (error: unknown) {
-      const detail = axios.isAxiosError<{ detail?: string }>(error)
-        ? error.response?.data.detail
-        : undefined
-      setServerError(detail ?? 'Unable to create your account. Please try again.')
+      setServerError(
+        getApiErrorMessage(error, 'Unable to create your account. Please try again.'),
+      )
     }
   }
 

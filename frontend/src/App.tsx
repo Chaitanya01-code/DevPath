@@ -9,7 +9,7 @@ import { AdminAuthProvider } from './context/AdminAuthContext'
 import { AuthProvider } from './context/AuthContext'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminLogin from './pages/AdminLogin'
-import Dashboard from './pages/Dashboard'
+import Dashboard, { RoadmapDetail } from './pages/Dashboard'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -30,6 +30,7 @@ export default function App() {
                 </Route>
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/roadmaps/:roadmapId" element={<RoadmapDetail />} />
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route element={<AdminProtectedRoute />}>

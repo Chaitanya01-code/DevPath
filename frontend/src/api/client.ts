@@ -1,9 +1,42 @@
 import axios from 'axios'
 
+interface ApiErrorPayload {
+  detail?: unknown
+}
+
 const userTokenKey = 'skillora_access_token'
 const adminTokenKey = 'skillora_admin_access_token'
 let unauthorizedHandler: (() => void) | null = null
 let adminUnauthorizedHandler: (() => void) | null = null
+
+export const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (!axios.isAxiosError<ApiErrorPayload>(error)) {
+    return fallback
+  }
+
+  if (!error.response && error.code === 'ERR_NETWORK') {
+    return 'Unable to reach the backend API. Check that it is running, VITE_API_URL is correct, and CORS_ORIGINS allows this frontend.'
+  }
+
+  const detail = error.response?.data.detail
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail.flatMap((issue: unknown) => {
+      if (typeof issue !== 'object' || issue === null || !('msg' in issue)) {
+        return []
+      }
+      return typeof issue.msg === 'string' ? [issue.msg] : []
+    })
+    if (messages.length > 0) {
+      return messages.join('; ')
+    }
+  }
+
+  return fallback
+}
 
 const createApiClient = (
   tokenKey: string,

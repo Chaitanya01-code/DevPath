@@ -53,6 +53,8 @@ class AuthService:
         )
         if domain is None:
             raise InvalidDomainError
+        if not domain.is_active:
+            raise InvalidDomainError
 
         try:
             return self.users.create(
@@ -69,7 +71,11 @@ class AuthService:
 
     def login(self, credentials: LoginRequest) -> Token:
         user = self.users.get_by_email(str(credentials.email).lower())
-        if user is None or not verify_password(credentials.password, user.hashed_password):
+        if (
+            user is None
+            or not user.is_active
+            or not verify_password(credentials.password, user.hashed_password)
+        ):
             raise InvalidCredentialsError
         return Token(access_token=create_access_token(str(user.id), role="user"))
 

@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 
+import { getApiErrorMessage } from '../api/client'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { adminLoginSchema } from '../lib/validations'
 import type { AdminLoginFormValues } from '../lib/validations'
@@ -27,10 +27,7 @@ export default function AdminLogin() {
       await login(values)
       navigate('/admin/dashboard', { replace: true })
     } catch (error: unknown) {
-      const detail = axios.isAxiosError<{ detail?: string }>(error)
-        ? error.response?.data.detail
-        : undefined
-      setServerError(detail ?? 'Unable to log in. Please try again.')
+      setServerError(getApiErrorMessage(error, 'Unable to log in. Please try again.'))
     }
   }
 

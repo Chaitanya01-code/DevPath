@@ -2,8 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useLocation, useNavigate } from 'react-router-dom'
-import axios from 'axios'
 
+import { getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { loginSchema } from '../../lib/validations'
 import type { LoginFormValues } from '../../lib/validations'
@@ -34,10 +34,7 @@ export default function LoginForm() {
       await login(values)
       navigate(state?.from?.pathname ?? '/dashboard', { replace: true })
     } catch (error: unknown) {
-      const detail = axios.isAxiosError<{ detail?: string }>(error)
-        ? error.response?.data.detail
-        : undefined
-      setServerError(detail ?? 'Unable to log in. Please try again.')
+      setServerError(getApiErrorMessage(error, 'Unable to log in. Please try again.'))
     }
   }
 
