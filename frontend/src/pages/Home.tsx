@@ -20,7 +20,7 @@ const highlights = [
     number: '03',
     title: 'Made for your momentum',
     description: 'Build consistent habits and see how every focused session moves you ahead.',
-    tint: 'bg-coral-tint text-rose-700',
+    tint: 'bg-coral-tint text-heading ring-1 ring-coral/35',
   },
 ]
 

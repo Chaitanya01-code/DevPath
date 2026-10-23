@@ -53,7 +53,7 @@ export default function LoginForm() {
         </p>
       )}
       {serverError && (
-        <p role="alert" className="mb-5 rounded-xl border border-coral/30 bg-coral-tint px-4 py-3 text-sm font-medium text-rose-800">
+        <p role="alert" className="mb-5 rounded-xl border border-coral/40 bg-coral-tint px-4 py-3 text-sm font-semibold text-heading">
           {serverError}
         </p>
       )}
