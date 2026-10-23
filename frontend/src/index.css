@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-page: #f4fbf8;
+  --color-white: #ffffff;
+  --color-teal: #14b8a6;
+  --color-teal-hover: #0d9488;
+  --color-violet: #8b5cf6;
+  --color-coral: #fb7185;
+  --color-heading: #312e81;
+  --color-body: #475569;
+  --color-muted: #64748b;
+  --color-line: #e2f3ee;
+  --color-footer: #e6f7f2;
+  --color-tint-teal: #e6f7f2;
+  --color-tint-violet: #f1edff;
+  --color-tint-coral: #fff0f2;
+  --color-tint-mint: #f4fbf8;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-page);
+  color: var(--color-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-page);
+  color: var(--color-body);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a {
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.text-gradient {
+  background-image: linear-gradient(110deg, var(--color-teal), var(--color-violet));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.bg-gradient-brand {
+  background-image: linear-gradient(110deg, var(--color-teal), var(--color-violet));
+}
+
+.hero-wash {
+  background:
+    radial-gradient(ellipse at 8% 10%, rgb(230 247 242 / 90%), transparent 48%),
+    radial-gradient(ellipse at 88% 12%, rgb(241 237 255 / 78%), transparent 42%),
+    linear-gradient(135deg, #f4fbf8 10%, #ffffff 55%, #f4f0ff 100%);
+}
+
+.shadow-card {
+  box-shadow: 0 18px 48px -28px rgb(20 184 166 / 34%), 0 12px 24px -20px rgb(139 92 246 / 28%);
+}
+
+.shadow-card-hover {
+  box-shadow: 0 24px 54px -26px rgb(20 184 166 / 38%), 0 18px 30px -22px rgb(139 92 246 / 34%);
+}
+
+.auth-wash {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgb(230 247 242 / 90%), transparent 42%),
+    radial-gradient(ellipse at 100% 100%, rgb(241 237 255 / 74%), transparent 42%),
+    var(--color-page);
+}
