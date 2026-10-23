@@ -1,10 +1,16 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
+import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useAuth } from '../../context/AuthContext'
 import Button from '../ui/Button'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const { admin, logout: logoutAdmin } = useAdminAuth()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  if (pathname.startsWith('/admin')) return null
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur-md">
@@ -13,7 +19,25 @@ export default function Navbar() {
           Skillora<span className="text-gradient">.</span>
         </Link>
         <div className="flex items-center gap-2">
-          {user ? (
+          {admin ? (
+            <>
+              <Link
+                to="/admin/dashboard"
+                className="hidden rounded-lg px-3 py-2 text-sm font-medium text-body hover:text-teal-hover sm:block"
+              >
+                Admin dashboard
+              </Link>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  logoutAdmin()
+                  navigate('/login', { replace: true })
+                }}
+              >
+                Log out
+              </Button>
+            </>
+          ) : user ? (
             <>
               <Link
                 to="/dashboard"

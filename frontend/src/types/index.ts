@@ -114,6 +114,7 @@ export interface Admin {
 export interface TokenResponse {
   access_token: string
   token_type: string
+  role: 'user' | 'admin'
 }
 
 export interface SignupPayload {
@@ -163,11 +164,6 @@ export interface ResourcePayload {
 }
 
 export interface LoginPayload {
-  email: string
-  password: string
-}
-
-export interface AdminLoginPayload {
-  username: string
+  identifier: string
   password: string
 }

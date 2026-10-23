@@ -8,19 +8,20 @@ import {
 } from 'react'
 import type { ReactNode } from 'react'
 
-import { adminLogin as adminLoginRequest, getAdminMe } from '../api/auth'
+import { getAdminMe } from '../api/auth'
 import {
   clearStoredAdminToken,
+  clearStoredToken,
   getStoredAdminToken,
   setAdminUnauthorizedHandler,
   storeAdminToken,
 } from '../api/client'
-import type { Admin, AdminLoginPayload } from '../types'
+import type { Admin } from '../types'
 
 interface AdminAuthContextValue {
   admin: Admin | null
   loading: boolean
-  login: (credentials: AdminLoginPayload) => Promise<void>
+  loginWithToken: (token: string) => Promise<void>
   logout: () => void
 }
 
@@ -57,11 +58,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  const login = useCallback(async (credentials: AdminLoginPayload) => {
-    const tokenResponse = await adminLoginRequest(credentials)
-    storeAdminToken(tokenResponse.access_token)
+  const loginWithToken = useCallback(async (token: string) => {
+    clearStoredToken()
+    storeAdminToken(token)
     try {
       setAdmin(await getAdminMe())
+      setLoading(false)
     } catch (error: unknown) {
       clearStoredAdminToken()
       setAdmin(null)
@@ -70,8 +72,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ admin, loading, login, logout }),
-    [admin, loading, login, logout],
+    () => ({ admin, loading, loginWithToken, logout }),
+    [admin, loading, loginWithToken, logout],
   )
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>

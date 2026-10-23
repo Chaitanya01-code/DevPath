@@ -36,7 +36,7 @@ def login(credentials: LoginRequest, session: DatabaseSession) -> Token:
     except InvalidCredentialsError as error:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Invalid email/username or password",
             headers={"WWW-Authenticate": "Bearer"},
         ) from error
 
@@ -48,6 +48,6 @@ def admin_login(credentials: AdminLoginRequest, session: DatabaseSession) -> Tok
     except InvalidCredentialsError as error:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect admin username or password",
+            detail="Invalid email/username or password",
             headers={"WWW-Authenticate": "Bearer"},
         ) from error

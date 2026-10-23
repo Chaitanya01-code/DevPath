@@ -155,7 +155,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     logout()
-    navigate('/admin/login', { replace: true })
+    navigate('/login', { replace: true })
   }
 
   const submitDomain = async (event: FormEvent<HTMLFormElement>) => {

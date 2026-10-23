@@ -13,6 +13,11 @@ class AdminRepository:
     def get_by_username(self, username: str) -> Admin | None:
         return self.session.scalar(select(Admin).where(Admin.username == username))
 
+    def get_by_username_case_insensitive(self, username: str) -> Admin | None:
+        return self.session.scalar(
+            select(Admin).where(func.lower(Admin.username) == username.lower())
+        )
+
     def get_by_id(self, admin_id: uuid.UUID) -> Admin | None:
         return self.session.get(Admin, admin_id)
 

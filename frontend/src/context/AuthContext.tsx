@@ -10,6 +10,7 @@ import type { ReactNode } from 'react'
 
 import { getMe, login as loginRequest } from '../api/auth'
 import {
+  clearStoredAdminToken,
   clearStoredToken,
   getStoredToken,
   setUnauthorizedHandler,
@@ -20,7 +21,9 @@ import type { LoginPayload, User } from '../types'
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (credentials: LoginPayload) => Promise<void>
+  login: (
+    credentials: LoginPayload,
+  ) => Promise<{ accessToken: string; role: 'user' | 'admin' }>
   updateUser: (user: User) => void
   logout: () => void
 }
@@ -62,10 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (credentials: LoginPayload) => {
     const tokenResponse = await loginRequest(credentials)
+    if (tokenResponse.role === 'admin') {
+      clearStoredToken()
+      setUser(null)
+      setLoading(false)
+      return { accessToken: tokenResponse.access_token, role: 'admin' as const }
+    }
+
+    clearStoredAdminToken()
     storeToken(tokenResponse.access_token)
     try {
       const currentUser = await getMe()
       setUser(currentUser)
+      setLoading(false)
+      return { accessToken: tokenResponse.access_token, role: 'user' as const }
     } catch (error: unknown) {
       clearStoredToken()
       setUser(null)

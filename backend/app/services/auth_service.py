@@ -70,20 +70,40 @@ class AuthService:
             raise
 
     def login(self, credentials: LoginRequest) -> Token:
-        user = self.users.get_by_email(str(credentials.email).lower())
+        identifier = credentials.identifier.strip()
+        user = self.users.get_by_email(identifier.lower())
+        admin = self.admins.get_by_username(identifier)
+
+        if user is not None and self.admins.get_by_username_case_insensitive(identifier) is not None:
+            raise InvalidCredentialsError
+
+        if admin is not None:
+            if not verify_password(credentials.password, admin.hashed_password):
+                raise InvalidCredentialsError
+            return Token(
+                access_token=create_access_token(str(admin.id), role="admin"),
+                role="admin",
+            )
+
         if (
             user is None
             or not user.is_active
             or not verify_password(credentials.password, user.hashed_password)
         ):
             raise InvalidCredentialsError
-        return Token(access_token=create_access_token(str(user.id), role="user"))
+        return Token(
+            access_token=create_access_token(str(user.id), role="user"),
+            role="user",
+        )
 
     def admin_login(self, credentials: AdminLoginRequest) -> Token:
         admin = self.admins.get_by_username(credentials.username)
         if admin is None or not verify_password(credentials.password, admin.hashed_password):
             raise InvalidCredentialsError
-        return Token(access_token=create_access_token(str(admin.id), role="admin"))
+        return Token(
+            access_token=create_access_token(str(admin.id), role="admin"),
+            role="admin",
+        )
 
     def initialize_admin(self, username: str, password: str) -> bool:
         if self.admins.exists():

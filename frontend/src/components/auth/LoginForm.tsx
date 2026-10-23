@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
+import { useAdminAuth } from '../../context/AdminAuthContext'
 import { loginSchema } from '../../lib/validations'
 import type { LoginFormValues } from '../../lib/validations'
 import Button from '../ui/Button'
@@ -18,6 +19,7 @@ interface LoginLocationState {
 
 export default function LoginForm() {
   const { login } = useAuth()
+  const { loginWithToken: loginAdmin, logout: logoutAdmin } = useAdminAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [serverError, setServerError] = useState('')
@@ -31,8 +33,20 @@ export default function LoginForm() {
   const onSubmit = async (values: LoginFormValues) => {
     setServerError('')
     try {
-      await login(values)
-      navigate(state?.from?.pathname ?? '/dashboard', { replace: true })
+      const session = await login(values)
+      if (session.role === 'admin') {
+        await loginAdmin(session.accessToken)
+        navigate('/admin/dashboard', { replace: true })
+      } else {
+        logoutAdmin()
+        const requestedPath = state?.from?.pathname
+        navigate(
+          requestedPath && !requestedPath.startsWith('/admin')
+            ? requestedPath
+            : '/dashboard',
+          { replace: true },
+        )
+      }
     } catch (error: unknown) {
       setServerError(getApiErrorMessage(error, 'Unable to log in. Please try again.'))
     }
@@ -55,12 +69,18 @@ export default function LoginForm() {
         </p>
       )}
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Input label="Email" type="email" autoComplete="email" placeholder="you@example.com" error={errors.email?.message} {...register('email')} />
+        <Input label="Email or username" autoComplete="username" placeholder="you@example.com or username" error={errors.identifier?.message} {...register('identifier')} />
         <Input label="Password" type="password" autoComplete="current-password" placeholder="Your password" error={errors.password?.message} {...register('password')} />
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? 'Logging in…' : 'Log in'}
         </Button>
       </form>
+      <p className="mt-5 text-center text-sm text-muted">
+        Don’t have an account?{' '}
+        <Link to="/signup" className="font-semibold text-teal-hover hover:text-violet">
+          Sign up
+        </Link>
+      </p>
     </Card>
   )
 }

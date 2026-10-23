@@ -2,7 +2,6 @@ import apiClient from './client'
 import { adminApiClient } from './client'
 import type {
   Admin,
-  AdminLoginPayload,
   AdminStatistics,
   DomainPayload,
   Domain,
@@ -47,11 +46,6 @@ export const updateMyDomain = async (domainId: number): Promise<User> => {
   const response = await apiClient.patch<User>('/users/me/domain', {
     domain_id: domainId,
   })
-  return response.data
-}
-
-export const adminLogin = async (payload: AdminLoginPayload): Promise<TokenResponse> => {
-  const response = await adminApiClient.post<TokenResponse>('/auth/admin/login', payload)
   return response.data
 }
 

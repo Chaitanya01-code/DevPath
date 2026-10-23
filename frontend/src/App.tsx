@@ -8,7 +8,6 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import { AdminAuthProvider } from './context/AdminAuthContext'
 import { AuthProvider } from './context/AuthContext'
 import AdminDashboard from './pages/AdminDashboard'
-import AdminLogin from './pages/AdminLogin'
 import Dashboard, { RoadmapDetail } from './pages/Dashboard'
 import Home from './pages/Home'
 import Login from './pages/Login'
@@ -32,7 +31,7 @@ export default function App() {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/roadmaps/:roadmapId" element={<RoadmapDetail />} />
                 </Route>
-                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route element={<AdminProtectedRoute />}>
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 </Route>
