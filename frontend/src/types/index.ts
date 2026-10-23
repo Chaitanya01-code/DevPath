@@ -17,7 +17,7 @@ export interface Domain {
 }
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
-export type ResourceType = 'documentation' | 'video' | 'tutorial' | 'article' | 'practice'
+export type ResourceType = 'documentation' | 'video' | 'tutorial' | 'article' | 'practice' | 'project'
 
 export interface LearningResource {
   id: number
@@ -60,6 +60,7 @@ export interface Roadmap {
 }
 
 export interface RoadmapWithProgress extends Roadmap {
+  is_started: boolean
   progress_percentage: number
   completed_required_steps: number
   total_required_steps: number
@@ -67,6 +68,7 @@ export interface RoadmapWithProgress extends Roadmap {
 
 export interface RoadmapProgress {
   roadmap_id: number
+  is_started: boolean
   total_required_steps: number
   completed_required_steps: number
   completed_steps: number

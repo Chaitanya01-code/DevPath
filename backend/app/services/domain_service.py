@@ -88,9 +88,13 @@ class DomainService:
         public_only: bool,
         domain_id: int | None = None,
         difficulty: str | None = None,
+        include_steps: bool = False,
     ) -> list[Roadmap]:
         return self.repository.list_roadmaps(
-            public_only=public_only, domain_id=domain_id, difficulty=difficulty
+            public_only=public_only,
+            domain_id=domain_id,
+            difficulty=difficulty,
+            include_steps=include_steps,
         )
 
     def get_roadmap(self, roadmap_id: int, *, public_only: bool = False) -> Roadmap:
@@ -101,6 +105,7 @@ class DomainService:
                 not roadmap.is_published
                 or roadmap.is_archived
                 or not roadmap.domain.is_active
+                or not any(step.is_required for step in roadmap.steps)
             )
         ):
             raise ContentNotFoundError("Roadmap not found")
@@ -109,6 +114,8 @@ class DomainService:
     def create_roadmap(self, payload: RoadmapWrite) -> Roadmap:
         if self.repository.get_active_by_id(payload.domain_id) is None:
             raise InvalidRelationshipError("Invalid domain")
+        if payload.is_published:
+            raise ContentConflictError("Add at least one required step before publishing a roadmap")
         return self._commit(
             lambda: self.repository.create_roadmap(payload.model_dump()),
             "A roadmap with this slug already exists in the selected domain",
@@ -119,6 +126,10 @@ class DomainService:
         values = payload.model_dump(exclude_unset=True, exclude_none=True)
         if "domain_id" in values and self.repository.get_active_by_id(int(values["domain_id"])) is None:
             raise InvalidRelationshipError("Invalid domain")
+        if values.get("is_published") is True and not any(
+            step.is_required for step in self.repository.list_steps(roadmap_id)
+        ):
+            raise ContentConflictError("Add at least one required step before publishing a roadmap")
         return self._commit(
             lambda: self.repository.update_roadmap(roadmap, values),
             "A roadmap with this slug already exists in the selected domain",
@@ -157,6 +168,11 @@ class DomainService:
             raise ContentNotFoundError("Roadmap step not found")
         values = payload.model_dump(exclude_unset=True, exclude_none=True)
         target_roadmap = int(values.get("roadmap_id", step.roadmap_id))
+        has_progress = self.repository.step_progress_count(step_id) > 0
+        if has_progress and target_roadmap != step.roadmap_id:
+            raise ContentConflictError("A step with student progress cannot be moved to another roadmap")
+        if has_progress and values.get("is_required", step.is_required) != step.is_required:
+            raise ContentConflictError("A step with student progress cannot change its required status")
         self.get_roadmap(target_roadmap)
         position = int(values.get("position", step.position))
         if any(
@@ -226,10 +242,28 @@ class DomainService:
         except ValueError as error:
             raise InvalidRelationshipError(str(error)) from error
 
-    def list_student_roadmaps(self, user_id: UUID) -> list[RoadmapWithProgress]:
+    def list_student_roadmaps(
+        self,
+        user_id: UUID,
+        domain_id: int | None,
+        difficulty: str | None = None,
+    ) -> list[RoadmapWithProgress]:
+        if domain_id is None or domain_id < 1:
+            return []
+
+        roadmaps = self.repository.list_roadmaps(
+            public_only=True,
+            domain_id=domain_id,
+            difficulty=difficulty,
+            include_steps=True,
+        )
+        step_ids = [step.id for roadmap in roadmaps for step in roadmap.steps]
+        records = self.repository.get_progress_records(user_id, step_ids)
         result: list[RoadmapWithProgress] = []
-        for roadmap in self.repository.list_student_roadmaps(user_id):
-            progress = self._roadmap_progress(roadmap, user_id)
+        for roadmap in roadmaps:
+            progress = self._roadmap_progress_for_steps(
+                roadmap, roadmap.steps, records
+            )
             result.append(
                 RoadmapWithProgress(
                     id=roadmap.id,
@@ -243,6 +277,7 @@ class DomainService:
                     display_order=roadmap.display_order,
                     is_published=roadmap.is_published,
                     is_archived=roadmap.is_archived,
+                    is_started=progress.is_started,
                     progress_percentage=progress.progress_percentage,
                     completed_required_steps=progress.completed_required_steps,
                     total_required_steps=progress.total_required_steps,
@@ -250,8 +285,46 @@ class DomainService:
             )
         return result
 
-    def get_student_roadmap(self, roadmap_id: int, user_id: UUID) -> RoadmapProgressRead:
+    def get_student_roadmap_content(self, roadmap_id: int, domain_id: int | None) -> Roadmap:
+        if domain_id is None or domain_id < 1:
+            raise ContentNotFoundError("Roadmap not found")
         roadmap = self.get_roadmap(roadmap_id, public_only=True)
+        if roadmap.domain_id != domain_id:
+            raise ContentNotFoundError("Roadmap not found")
+        return roadmap
+
+    def get_student_roadmap(
+        self, roadmap_id: int, user_id: UUID, domain_id: int | None
+    ) -> RoadmapProgressRead:
+        roadmap = self.get_student_roadmap_content(roadmap_id, domain_id)
+        return self._roadmap_progress(roadmap, user_id)
+
+    def start_student_roadmap(
+        self, roadmap_id: int, user_id: UUID, domain_id: int | None
+    ) -> RoadmapProgressRead:
+        roadmap = self.get_student_roadmap_content(roadmap_id, domain_id)
+        steps = self.repository.list_steps(roadmap_id)
+        records = self.repository.get_progress_records(
+            user_id, [step.id for step in steps]
+        )
+        if records:
+            return self._roadmap_progress(roadmap, user_id)
+
+        first_required_step = next((step for step in steps if step.is_required), None)
+        if first_required_step is None:
+            raise ContentConflictError("This roadmap has no required steps to start")
+
+        enrollment_record = UserStepProgress(
+            user_id=user_id,
+            step_id=first_required_step.id,
+            is_completed=False,
+        )
+        try:
+            self.repository.save_progress(enrollment_record)
+        except IntegrityError:
+            self.session.rollback()
+            if self.repository.get_progress_record(user_id, first_required_step.id) is None:
+                raise ContentConflictError("Unable to start this roadmap; retry the request")
         return self._roadmap_progress(roadmap, user_id)
 
     def get_admin_roadmap_progress(self, roadmap_id: int, user_id: UUID) -> RoadmapProgressRead:
@@ -259,9 +332,14 @@ class DomainService:
         return self._roadmap_progress(roadmap, user_id)
 
     def set_step_progress(
-        self, roadmap_id: int, step_id: int, user_id: UUID, is_completed: bool
+        self,
+        roadmap_id: int,
+        step_id: int,
+        user_id: UUID,
+        domain_id: int | None,
+        is_completed: bool,
     ) -> RoadmapProgressRead:
-        self.get_roadmap(roadmap_id, public_only=True)
+        roadmap = self.get_student_roadmap_content(roadmap_id, domain_id)
         step = self.repository.get_step(step_id)
         if step is None or step.roadmap_id != roadmap_id:
             raise ContentNotFoundError("Step not found in this roadmap")
@@ -277,7 +355,7 @@ class DomainService:
         except IntegrityError as error:
             self.session.rollback()
             raise ContentConflictError("Unable to save step progress; retry the request") from error
-        return self.get_student_roadmap(roadmap_id, user_id)
+        return self._roadmap_progress(roadmap, user_id)
 
     def list_students(
         self, *, query: str | None, page: int, page_size: int
@@ -312,6 +390,14 @@ class DomainService:
     def _roadmap_progress(self, roadmap: Roadmap, user_id: UUID) -> RoadmapProgressRead:
         steps = self.repository.list_steps(roadmap.id)
         records = self.repository.get_progress_records(user_id, [step.id for step in steps])
+        return self._roadmap_progress_for_steps(roadmap, steps, records)
+
+    def _roadmap_progress_for_steps(
+        self,
+        roadmap: Roadmap,
+        steps: list[RoadmapStep],
+        records: dict[int, UserStepProgress],
+    ) -> RoadmapProgressRead:
         step_reads = [
             RoadmapStepDetailRead.model_validate(
                 {
@@ -346,6 +432,7 @@ class DomainService:
         )
         return RoadmapProgressRead(
             roadmap_id=roadmap.id,
+            is_started=any(step.id in records for step in steps),
             total_required_steps=required,
             completed_required_steps=completed,
             completed_steps=completed_all,

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { getApiErrorMessage } from '../../api/client'
 import { getDomains, signup } from '../../api/auth'
@@ -65,8 +65,8 @@ export default function SignupForm() {
   }
 
   return (
-    <Card className="p-6 sm:p-8">
-      <div className="mb-7">
+    <Card className="p-5 sm:p-7">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold tracking-tight text-heading">Create your account</h1>
         <p className="mt-2 text-sm text-muted">Start building a learning path that works for you.</p>
       </div>
@@ -75,7 +75,7 @@ export default function SignupForm() {
           {serverError || domainsError}
         </p>
       )}
-      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form className="space-y-3.5" onSubmit={handleSubmit(onSubmit)} noValidate>
         <Input label="Full name" autoComplete="name" placeholder="Your name" error={errors.name?.message} {...register('name')} />
         <Input label="Email" type="email" autoComplete="email" placeholder="you@example.com" error={errors.email?.message} {...register('email')} />
         <Input label="Password" type="password" autoComplete="new-password" placeholder="At least 8 characters" error={errors.password?.message} {...register('password')} />
@@ -92,6 +92,12 @@ export default function SignupForm() {
           {isSubmitting ? 'Creating account…' : 'Create account'}
         </Button>
       </form>
+      <p className="mt-4 text-center text-sm text-muted">
+        Already have an account?{' '}
+        <Link to="/login" className="font-semibold text-teal-hover hover:text-violet">
+          Log in
+        </Link>
+      </p>
     </Card>
   )
 }

@@ -91,13 +91,25 @@ class DomainRepository:
         self.session.delete(domain)
         self.session.commit()
 
-    def list_roadmaps(self, *, public_only: bool, domain_id: int | None = None, difficulty: str | None = None) -> list[Roadmap]:
+    def list_roadmaps(
+        self,
+        *,
+        public_only: bool,
+        domain_id: int | None = None,
+        difficulty: str | None = None,
+        include_steps: bool = False,
+    ) -> list[Roadmap]:
         statement = select(Roadmap).options(selectinload(Roadmap.domain))
+        if include_steps:
+            statement = statement.options(
+                selectinload(Roadmap.steps).selectinload(RoadmapStep.resources)
+            )
         if public_only:
             statement = statement.where(
                 Roadmap.is_published.is_(True),
                 Roadmap.is_archived.is_(False),
                 Roadmap.domain.has(Domain.is_active.is_(True)),
+                Roadmap.steps.any(RoadmapStep.is_required.is_(True)),
             )
         if domain_id is not None:
             statement = statement.where(Roadmap.domain_id == domain_id)
@@ -218,6 +230,8 @@ class DomainRepository:
             .where(
                 Roadmap.is_published.is_(True),
                 Roadmap.is_archived.is_(False),
+                Roadmap.domain.has(Domain.is_active.is_(True)),
+                Roadmap.steps.any(RoadmapStep.is_required.is_(True)),
             )
             .options(selectinload(Roadmap.domain))
             .distinct()
@@ -289,7 +303,17 @@ class DomainRepository:
 
     def list_student_roadmap_summaries(self, user_id: object) -> list[dict[str, object]]:
         result: list[dict[str, object]] = []
+        started_roadmap_ids = set(
+            self.session.scalars(
+                select(RoadmapStep.roadmap_id)
+                .join(UserStepProgress, UserStepProgress.step_id == RoadmapStep.id)
+                .where(UserStepProgress.user_id == user_id)
+                .distinct()
+            ).all()
+        )
         for roadmap in self.list_student_roadmaps(user_id):
+            if roadmap.id not in started_roadmap_ids:
+                continue
             required, completed, _ = self.count_progress(roadmap.id, user_id)
             result.append({
                 "user_id": user_id,

@@ -86,7 +86,7 @@ class ResourceWrite(BaseModel):
     title: str = Field(min_length=1, max_length=180)
     url: AnyHttpUrl
     description: str = Field(default="", max_length=4000)
-    resource_type: Literal["documentation", "video", "tutorial", "article", "practice"]
+    resource_type: Literal["documentation", "video", "tutorial", "article", "practice", "project"]
     is_recommended: bool = False
     display_order: int = Field(default=0, ge=0)
 
@@ -95,7 +95,7 @@ class ResourceUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=180)
     url: AnyHttpUrl | None = None
     description: str | None = Field(default=None, max_length=4000)
-    resource_type: Literal["documentation", "video", "tutorial", "article", "practice"] | None = None
+    resource_type: Literal["documentation", "video", "tutorial", "article", "practice", "project"] | None = None
     is_recommended: bool | None = None
     display_order: int | None = Field(default=None, ge=0)
 
@@ -183,6 +183,7 @@ class RoadmapWithProgress(BaseModel):
     display_order: int
     is_published: bool
     is_archived: bool
+    is_started: bool
     progress_percentage: float
     completed_required_steps: int
     total_required_steps: int
@@ -190,6 +191,7 @@ class RoadmapWithProgress(BaseModel):
 
 class ProgressSummary(BaseModel):
     roadmap_id: int
+    is_started: bool
     total_required_steps: int
     completed_required_steps: int
     completed_steps: int

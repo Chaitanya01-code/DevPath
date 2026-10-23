@@ -54,10 +54,7 @@ export const getAdminMe = async (): Promise<Admin> => {
   return response.data
 }
 
-export const getRoadmaps = async (filters?: {
-  domain_id?: number
-  difficulty?: string
-}): Promise<RoadmapWithProgress[]> => {
+export const getRoadmaps = async (filters?: { difficulty?: string }): Promise<RoadmapWithProgress[]> => {
   const response = await apiClient.get<RoadmapWithProgress[]>('/roadmaps', { params: filters })
   return response.data
 }
@@ -69,6 +66,11 @@ export const getRoadmap = async (roadmapId: number): Promise<Roadmap> => {
 
 export const getRoadmapProgress = async (roadmapId: number): Promise<RoadmapProgress> => {
   const response = await apiClient.get<RoadmapProgress>(`/roadmaps/${roadmapId}/progress`)
+  return response.data
+}
+
+export const startRoadmap = async (roadmapId: number): Promise<RoadmapProgress> => {
+  const response = await apiClient.post<RoadmapProgress>(`/roadmaps/${roadmapId}/start`)
   return response.data
 }
 
@@ -113,6 +115,11 @@ export const deleteAdminDomain = async (domainId: number): Promise<void> => {
 
 export const getAdminRoadmaps = async (): Promise<Roadmap[]> => {
   const response = await adminApiClient.get<Roadmap[]>('/admin/roadmaps')
+  return response.data
+}
+
+export const getAdminRoadmapPreview = async (roadmapId: number): Promise<Roadmap> => {
+  const response = await adminApiClient.get<Roadmap>(`/admin/roadmaps/${roadmapId}/preview`)
   return response.data
 }
 

@@ -19,7 +19,7 @@ interface LoginLocationState {
 
 export default function LoginForm() {
   const { login } = useAuth()
-  const { loginWithToken: loginAdmin, logout: logoutAdmin } = useAdminAuth()
+  const { loginWithToken: loginAdmin, clearSession: clearAdminSession } = useAdminAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [serverError, setServerError] = useState('')
@@ -38,7 +38,7 @@ export default function LoginForm() {
         await loginAdmin(session.accessToken)
         navigate('/admin/dashboard', { replace: true })
       } else {
-        logoutAdmin()
+        clearAdminSession()
         const requestedPath = state?.from?.pathname
         navigate(
           requestedPath && !requestedPath.startsWith('/admin')
@@ -53,8 +53,8 @@ export default function LoginForm() {
   }
 
   return (
-    <Card className="p-6 sm:p-8">
-      <div className="mb-7">
+    <Card className="p-5 sm:p-7">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold tracking-tight text-heading">Welcome back</h1>
         <p className="mt-2 text-sm text-muted">Log in to continue your learning journey.</p>
       </div>
@@ -68,7 +68,7 @@ export default function LoginForm() {
           {serverError}
         </p>
       )}
-      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
         <Input label="Email or username" autoComplete="username" placeholder="you@example.com or username" error={errors.identifier?.message} {...register('identifier')} />
         <Input label="Password" type="password" autoComplete="current-password" placeholder="Your password" error={errors.password?.message} {...register('password')} />
         <Button type="submit" className="w-full" disabled={isSubmitting}>

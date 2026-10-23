@@ -118,14 +118,14 @@ class AuthService:
         return admin is not None
 
     def update_user_domain(self, user: User, domain_id: int) -> User:
-        if self.domains.get_by_id(domain_id) is None:
+        if self.domains.get_active_by_id(domain_id) is None:
             raise InvalidDomainError
         return self.users.update_domain(user, domain_id)
 
     def get_user_from_token(self, token: str) -> User:
         subject = self._get_subject(token, expected_role="user")
         user = self.users.get_by_id(subject)
-        if user is None:
+        if user is None or not user.is_active:
             raise InvalidTokenError
         return user
 

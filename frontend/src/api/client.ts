@@ -6,8 +6,13 @@ interface ApiErrorPayload {
 
 const userTokenKey = 'skillora_access_token'
 const adminTokenKey = 'skillora_admin_access_token'
+export const authLogoutEventName = 'skillora:logout'
 let unauthorizedHandler: (() => void) | null = null
 let adminUnauthorizedHandler: (() => void) | null = null
+
+export const notifyAuthLogout = (): void => {
+  window.dispatchEvent(new Event(authLogoutEventName))
+}
 
 export const getApiErrorMessage = (error: unknown, fallback: string): string => {
   if (!axios.isAxiosError<ApiErrorPayload>(error)) {
@@ -59,8 +64,24 @@ const createApiClient = (
     (response) => response,
     (error: unknown) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        localStorage.removeItem(tokenKey)
-        onUnauthorized()?.()
+        const requestUrl = error.config?.url ?? ''
+        const isAuthenticationRequest =
+          requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/admin/login') ||
+          requestUrl.includes('/auth/signup')
+        const authorization = error.config?.headers?.get('Authorization')
+        const requestToken =
+          typeof authorization === 'string'
+            ? authorization.replace(/^Bearer\s+/i, '')
+            : null
+        if (
+          !isAuthenticationRequest &&
+          requestToken &&
+          localStorage.getItem(tokenKey) === requestToken
+        ) {
+          localStorage.removeItem(tokenKey)
+          onUnauthorized()?.()
+        }
       }
       return Promise.reject(error)
     },
@@ -79,6 +100,11 @@ export const setAdminUnauthorizedHandler = (handler: (() => void) | null): void 
 
 export const clearStoredToken = (): void => {
   localStorage.removeItem(userTokenKey)
+}
+
+export const clearStoredAuthTokens = (): void => {
+  localStorage.removeItem(userTokenKey)
+  localStorage.removeItem(adminTokenKey)
 }
 
 export const storeToken = (token: string): void => {

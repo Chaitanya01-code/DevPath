@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import type { ReactNode } from 'react'
@@ -11,8 +12,12 @@ import type { ReactNode } from 'react'
 import { getMe, login as loginRequest } from '../api/auth'
 import {
   clearStoredAdminToken,
+  clearStoredAuthTokens,
   clearStoredToken,
+  authLogoutEventName,
+  getStoredAdminToken,
   getStoredToken,
+  notifyAuthLogout,
   setUnauthorizedHandler,
   storeToken,
 } from '../api/client'
@@ -21,6 +26,7 @@ import type { LoginPayload, User } from '../types'
 interface AuthContextValue {
   user: User | null
   loading: boolean
+  refreshSession: () => Promise<void>
   login: (
     credentials: LoginPayload,
   ) => Promise<{ accessToken: string; role: 'user' | 'admin' }>
@@ -33,11 +39,54 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const refreshSequence = useRef(0)
+  const refreshRequest = useRef<{ id: number; token: string; promise: Promise<void> } | null>(null)
 
   const logout = useCallback(() => {
-    clearStoredToken()
+    clearStoredAuthTokens()
     setUser(null)
     setLoading(false)
+    notifyAuthLogout()
+  }, [])
+
+  const refreshSession = useCallback((): Promise<void> => {
+    const token = getStoredToken()
+    if (token && getStoredAdminToken()) {
+      clearStoredAuthTokens()
+      setUser(null)
+      setLoading(false)
+      return Promise.resolve()
+    }
+    if (!token) {
+      setUser(null)
+      setLoading(false)
+      return Promise.resolve()
+    }
+
+    if (refreshRequest.current?.token === token) {
+      return refreshRequest.current.promise
+    }
+
+    setLoading(true)
+    const requestId = ++refreshSequence.current
+    const promise = getMe()
+      .then((currentUser) => {
+        if (getStoredToken() === token) setUser(currentUser)
+      })
+      .catch((error: unknown) => {
+        if (getStoredToken() === token) {
+          setUser(null)
+          console.error('Unable to validate the signed-in user.', error)
+        }
+      })
+      .finally(() => {
+        if (refreshRequest.current?.id === requestId) {
+          setLoading(false)
+          refreshRequest.current = null
+        }
+      })
+    refreshRequest.current = { id: requestId, token, promise }
+    return promise
   }, [])
 
   useEffect(() => {
@@ -46,22 +95,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [logout])
 
   useEffect(() => {
-    const token = getStoredToken()
-    if (!token) {
+    const handleLogout = () => {
+      setUser(null)
       setLoading(false)
-      return
     }
-
-    getMe()
-      .then(setUser)
-      .catch((error: unknown) => {
-        if (getStoredToken()) {
-          clearStoredToken()
-          console.error('Unable to load the signed-in user.', error)
-        }
-      })
-      .finally(() => setLoading(false))
+    window.addEventListener(authLogoutEventName, handleLogout)
+    return () => window.removeEventListener(authLogoutEventName, handleLogout)
   }, [])
+
+  useEffect(() => {
+    void refreshSession()
+  }, [refreshSession])
+
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) void refreshSession()
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [refreshSession])
 
   const login = useCallback(async (credentials: LoginPayload) => {
     const tokenResponse = await loginRequest(credentials)
@@ -76,12 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeToken(tokenResponse.access_token)
     try {
       const currentUser = await getMe()
+      if (getStoredToken() !== tokenResponse.access_token) {
+        throw new Error('The student session changed during login.')
+      }
       setUser(currentUser)
       setLoading(false)
       return { accessToken: tokenResponse.access_token, role: 'user' as const }
     } catch (error: unknown) {
-      clearStoredToken()
-      setUser(null)
+      if (getStoredToken() === tokenResponse.access_token) {
+        clearStoredToken()
+        setUser(null)
+      }
+      setLoading(false)
       throw error
     }
   }, [])
@@ -91,8 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, loading, login, updateUser, logout }),
-    [user, loading, login, updateUser, logout],
+    () => ({ user, loading, refreshSession, login, updateUser, logout }),
+    [user, loading, refreshSession, login, updateUser, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

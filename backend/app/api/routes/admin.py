@@ -104,7 +104,7 @@ def delete_domain(domain_id: int, session: DatabaseSession, _: CurrentAdmin) -> 
 
 @router.get("/roadmaps", response_model=list[RoadmapRead])
 def list_roadmaps(session: DatabaseSession, _: CurrentAdmin) -> list[Roadmap]:
-    return DomainService(session).list_roadmaps(public_only=False)
+    return DomainService(session).list_roadmaps(public_only=False, include_steps=True)
 
 
 @router.post("/roadmaps", response_model=RoadmapRead, status_code=status.HTTP_201_CREATED)
