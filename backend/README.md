@@ -18,12 +18,14 @@ Install dependencies and configure the environment:
 
 ```powershell
 python -m pip install -r requirements.txt
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Create a PostgreSQL database named `skillora` (or update `DATABASE_URL` in `.env` to an existing database). Use a long, random `SECRET_KEY` before deploying.
+If a `.env` already exists, keep its `DATABASE_URL` and add or update settings in place rather than replacing it. Create a PostgreSQL database named `skillora` for a local setup, or retain your Neon or other PostgreSQL URL. Remote PostgreSQL URLs use `sslmode=require`. Use a long, random `SECRET_KEY` before deploying.
 
-Run the initial migration and start the API:
+Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env` to configure the initial admin account. Keep these values private. On startup, Skillora creates the admin only when the `admins` table is empty; it does not change an existing admin.
+
+Run the migrations and start the API:
 
 ```powershell
 alembic upgrade head

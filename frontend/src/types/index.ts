@@ -1,12 +1,19 @@
-export type UserRole = 'student' | 'admin'
-
 export interface User {
   id: string
-  full_name: string
+  name: string
   email: string
+  domain: Domain
   github_username: string | null
-  role: UserRole
   created_at: string
+}
+
+export interface Domain {
+  id: number
+  name: string
+}
+
+export interface Admin {
+  username: string
 }
 
 export interface TokenResponse {
@@ -15,12 +22,18 @@ export interface TokenResponse {
 }
 
 export interface SignupPayload {
-  full_name: string
+  name: string
   email: string
   password: string
+  domain_id?: number
 }
 
 export interface LoginPayload {
   email: string
+  password: string
+}
+
+export interface AdminLoginPayload {
+  username: string
   password: string
 }

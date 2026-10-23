@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.db.session import get_session
+from app.models.admin import Admin
 from app.models.user import User
 from app.services.auth_service import AuthService, InvalidTokenError
 
@@ -30,5 +31,20 @@ def get_current_user(
         ) from error
 
 
+def get_current_admin(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    session: Annotated[Session, Depends(get_db)],
+) -> Admin:
+    try:
+        return AuthService(session).get_admin_from_token(token)
+    except InvalidTokenError as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate admin credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from error
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentAdmin = Annotated[Admin, Depends(get_current_admin)]
 DatabaseSession = Annotated[Session, Depends(get_db)]

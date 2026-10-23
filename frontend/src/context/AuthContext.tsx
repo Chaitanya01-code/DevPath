@@ -21,6 +21,7 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   login: (credentials: LoginPayload) => Promise<void>
+  updateUser: (user: User) => void
   logout: () => void
 }
 
@@ -72,9 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const updateUser = useCallback((updatedUser: User) => {
+    setUser(updatedUser)
+  }, [])
+
   const value = useMemo(
-    () => ({ user, loading, login, logout }),
-    [user, loading, login, logout],
+    () => ({ user, loading, login, updateUser, logout }),
+    [user, loading, login, updateUser, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.user import User
 
@@ -11,20 +11,33 @@ class UserRepository:
         self.session = session
 
     def get_by_email(self, email: str) -> User | None:
-        return self.session.scalar(select(User).where(User.email == email))
+        statement = select(User).options(joinedload(User.domain)).where(User.email == email)
+        return self.session.scalar(statement)
 
     def get_by_id(self, user_id: UUID) -> User | None:
-        return self.session.get(User, user_id)
+        statement = select(User).options(joinedload(User.domain)).where(User.id == user_id)
+        return self.session.scalar(statement)
 
     def create(
         self,
         *,
-        full_name: str,
+        name: str,
         email: str,
         hashed_password: str,
+        domain_id: int,
     ) -> User:
-        user = User(full_name=full_name, email=email, hashed_password=hashed_password)
+        user = User(
+            name=name,
+            email=email,
+            hashed_password=hashed_password,
+            domain_id=domain_id,
+        )
         self.session.add(user)
         self.session.commit()
         self.session.refresh(user)
-        return user
+        return self.get_by_id(user.id) or user
+
+    def update_domain(self, user: User, domain_id: int) -> User:
+        user.domain_id = domain_id
+        self.session.commit()
+        return self.get_by_id(user.id) or user
