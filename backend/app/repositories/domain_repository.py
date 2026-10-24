@@ -319,6 +319,7 @@ class DomainRepository:
                 "user_id": user_id,
                 "roadmap_id": roadmap.id,
                 "roadmap_title": roadmap.title,
+                "domain_name": roadmap.domain.name,
                 "total_required_steps": required,
                 "completed_required_steps": completed,
                 "progress_percentage": (completed / required * 100) if required else 0,

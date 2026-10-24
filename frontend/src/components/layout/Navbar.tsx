@@ -10,7 +10,14 @@ export default function Navbar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
 
-  if (pathname.startsWith('/admin')) return null
+  if (
+    pathname.startsWith('/admin') ||
+    pathname === '/dashboard' ||
+    pathname.startsWith('/roadmaps') ||
+    pathname.startsWith('/resources') ||
+    pathname.startsWith('/progress') ||
+    pathname.startsWith('/profile')
+  ) return null
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur-md">
@@ -19,7 +26,7 @@ export default function Navbar() {
           to="/"
           className="shrink-0 rounded-sm text-xl font-extrabold tracking-tight text-heading focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
         >
-          Skillora<span className="text-gradient">.</span>
+          DevPath<span className="text-gradient">.</span>
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           {admin ? (

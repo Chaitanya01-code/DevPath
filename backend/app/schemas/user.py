@@ -245,6 +245,16 @@ class StudentRoadmapSummary(BaseModel):
     user_id: UUID
     roadmap_id: int
     roadmap_title: str
+    domain_name: str
+    total_required_steps: int
+    completed_required_steps: int
+    progress_percentage: float
+
+
+class MyRoadmapProgressSummary(BaseModel):
+    roadmap_id: int
+    roadmap_title: str
+    domain_name: str
     total_required_steps: int
     completed_required_steps: int
     progress_percentage: float

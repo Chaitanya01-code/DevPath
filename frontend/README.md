@@ -1,10 +1,10 @@
-# Skillora frontend
+# DevPath frontend
 
 ## Requirements
 
 - Node.js 18+
 - npm
-- The Skillora API running locally (see `../backend/README.md`)
+- The DevPath API running locally (see `../backend/README.md`)
 
 ## Setup
 

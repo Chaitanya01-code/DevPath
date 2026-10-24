@@ -1,4 +1,4 @@
-# Skillora backend
+# DevPath backend
 
 ## Requirements
 
@@ -23,7 +23,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 If a `.env` already exists, keep its `DATABASE_URL` and add or update settings in place rather than replacing it. Create a PostgreSQL database named `skillora` for a local setup, or retain your Neon or other PostgreSQL URL. Remote PostgreSQL URLs use `sslmode=require`. Use a long, random `SECRET_KEY` before deploying.
 
-Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env` to configure the initial admin account. Keep these values private. On startup, Skillora creates the admin only when the `admins` table is empty; it does not change an existing admin.
+Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env` to configure the initial admin account. Keep these values private. On startup, DevPath creates the admin only when the `admins` table is empty; it does not change an existing admin.
 
 Run the migrations and start the API:
 

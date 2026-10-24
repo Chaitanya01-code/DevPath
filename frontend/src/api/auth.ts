@@ -7,6 +7,7 @@ import type {
   Domain,
   LoginPayload,
   LearningResource,
+  MyRoadmapProgressSummary,
   ResourcePayload,
   Roadmap,
   RoadmapPayload,
@@ -55,7 +56,22 @@ export const getAdminMe = async (): Promise<Admin> => {
 }
 
 export const getRoadmaps = async (filters?: { difficulty?: string }): Promise<RoadmapWithProgress[]> => {
-  const response = await apiClient.get<RoadmapWithProgress[]>('/roadmaps', { params: filters })
+  const response = await apiClient.get<RoadmapWithProgress[]>('/roadmaps', {
+    params: filters,
+    timeout: 20000,
+  })
+  return response.data
+}
+
+export const getLearningResources = async (): Promise<Roadmap[]> => {
+  const response = await apiClient.get<Roadmap[]>('/resources')
+  return response.data
+}
+
+export const getMyRoadmapProgress = async (): Promise<MyRoadmapProgressSummary[]> => {
+  const response = await apiClient.get<MyRoadmapProgressSummary[]>('/roadmaps/progress', {
+    timeout: 20000,
+  })
   return response.data
 }
 

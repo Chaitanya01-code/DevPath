@@ -97,6 +97,15 @@ class DomainService:
             include_steps=include_steps,
         )
 
+    def list_student_resource_roadmaps(self, domain_id: int | None) -> list[Roadmap]:
+        if domain_id is None or domain_id < 1:
+            return []
+        return self.repository.list_roadmaps(
+            public_only=True,
+            domain_id=domain_id,
+            include_steps=True,
+        )
+
     def get_roadmap(self, roadmap_id: int, *, public_only: bool = False) -> Roadmap:
         roadmap = self.repository.get_roadmap(roadmap_id)
         if roadmap is None or (

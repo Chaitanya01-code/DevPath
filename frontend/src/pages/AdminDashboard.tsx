@@ -614,7 +614,7 @@ export default function AdminDashboard() {
     <div className="mx-auto w-full max-w-7xl flex-1 px-5 py-6 sm:px-8 sm:py-8">
       <header className="mb-5 flex items-center justify-between">
         <span className="text-lg font-extrabold tracking-tight text-heading">
-          Skillora<span className="text-gradient">.</span>
+          DevPath<span className="text-gradient">.</span>
           <span className="ml-2 rounded-full bg-violet-tint px-2.5 py-1 text-xs font-bold text-violet">Admin</span>
         </span>
         <div className="flex items-center gap-3">

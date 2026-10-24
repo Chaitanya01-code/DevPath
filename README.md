@@ -1,6 +1,6 @@
-# Skillora
+# DevPath
 
-Skillora is a structured learning platform foundation with a FastAPI/PostgreSQL backend and a React/TypeScript frontend.
+DevPath is a structured learning platform foundation with a FastAPI/PostgreSQL backend and a React/TypeScript frontend.
 
 ## Backend
 
@@ -42,4 +42,4 @@ The API docs are at [http://localhost:8000/docs](http://localhost:8000/docs).
    ```
 
 Open the URL printed by Vite, usually [http://localhost:5173](http://localhost:5173).
-# Skillora
+# DevPath

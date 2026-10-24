@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.core.deps import CurrentUser, DatabaseSession
 from app.schemas.user import (
     DomainRead,
+    MyRoadmapProgressSummary,
     ProgressUpdate,
     RoadmapProgressRead,
     RoadmapRead,
@@ -22,6 +23,14 @@ def get_domains(session: DatabaseSession) -> list[DomainRead]:
     return DomainService(session).list_domains()
 
 
+@router.get("/resources", response_model=list[RoadmapRead])
+def get_learning_resources(
+    session: DatabaseSession, user: CurrentUser
+) -> list[RoadmapRead]:
+    roadmaps = DomainService(session).list_student_resource_roadmaps(user.domain_id)
+    return [RoadmapRead.model_validate(roadmap) for roadmap in roadmaps]
+
+
 @router.get("/roadmaps", response_model=list[RoadmapWithProgress])
 def get_roadmaps(
     session: DatabaseSession,
@@ -31,6 +40,16 @@ def get_roadmaps(
     return DomainService(session).list_student_roadmaps(
         user.id, user.domain_id, difficulty
     )
+
+
+@router.get("/roadmaps/progress", response_model=list[MyRoadmapProgressSummary])
+def get_my_roadmap_progress(
+    session: DatabaseSession, user: CurrentUser
+) -> list[MyRoadmapProgressSummary]:
+    return [
+        MyRoadmapProgressSummary.model_validate(summary)
+        for summary in DomainService(session).student_progress(user.id)
+    ]
 
 
 @router.get("/roadmaps/{roadmap_id}", response_model=RoadmapRead)

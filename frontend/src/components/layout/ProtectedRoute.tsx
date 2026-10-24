@@ -11,7 +11,7 @@ export default function ProtectedRoute() {
   if (loading || adminLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted" role="status">
-        Loading your Skillora account…
+        Loading your DevPath account…
       </div>
     )
   }

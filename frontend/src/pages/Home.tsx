@@ -77,7 +77,7 @@ export default function Home() {
               </Button>
             </div>
             <p className="mt-4 text-sm text-muted">
-              Already learning with Skillora?{' '}
+              Already learning with DevPath?{' '}
               <Link to="/login" className="font-semibold text-teal-hover underline decoration-teal/30 underline-offset-4 hover:text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
                 Log in
               </Link>

@@ -23,7 +23,11 @@ export const getApiErrorMessage = (error: unknown, fallback: string): string => 
     return 'Unable to reach the backend API. Check that it is running, VITE_API_URL is correct, and CORS_ORIGINS allows this frontend.'
   }
 
-  const detail = error.response?.data.detail
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+    return 'The backend request timed out. Please retry in a moment.'
+  }
+
+  const detail = error.response?.data?.detail
   if (typeof detail === 'string' && detail.trim()) {
     return detail
   }
@@ -38,6 +42,16 @@ export const getApiErrorMessage = (error: unknown, fallback: string): string => 
     if (messages.length > 0) {
       return messages.join('; ')
     }
+  }
+
+  if (error.response?.status === 401) {
+    return 'Your session has expired. Please sign in again.'
+  }
+  if (error.response?.status === 403) {
+    return 'You do not have permission to access this information.'
+  }
+  if (error.response && error.response.status >= 500) {
+    return 'The backend could not complete this request. Please retry in a moment.'
   }
 
   return fallback

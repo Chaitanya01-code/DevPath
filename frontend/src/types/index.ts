@@ -84,6 +84,16 @@ export interface StudentRoadmapSummary {
   user_id: string
   roadmap_id: number
   roadmap_title: string
+  domain_name: string
+  total_required_steps: number
+  completed_required_steps: number
+  progress_percentage: number
+}
+
+export interface MyRoadmapProgressSummary {
+  roadmap_id: number
+  roadmap_title: string
+  domain_name: string
   total_required_steps: number
   completed_required_steps: number
   progress_percentage: number
