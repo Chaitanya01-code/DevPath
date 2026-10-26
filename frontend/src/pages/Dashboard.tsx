@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Link, NavLink, Outlet, useParams, useSearchParams } from 'react-router-dom'
 
 import { getApiErrorMessage } from '../api/client'
 import {
@@ -23,6 +24,7 @@ import type {
   MyRoadmapProgressSummary,
   Roadmap,
   RoadmapProgress,
+  RoadmapStep,
   RoadmapWithProgress,
 } from '../types'
 
@@ -219,7 +221,7 @@ export default function Dashboard() {
     setProgressLoading(true)
     setProgressError('')
 
-    void getRoadmaps()
+    void getRoadmaps({ all_domains: true })
       .then((items) => {
         if (!Array.isArray(items)) throw new Error('The roadmap response was not a list.')
         if (current) setRoadmaps(items)
@@ -254,11 +256,11 @@ export default function Dashboard() {
 
   const activeRoadmaps = progressSummaries.filter((summary) => summary.progress_percentage < 100).length
   const completedRoadmaps = progressSummaries.filter((summary) => summary.progress_percentage >= 100).length
+  const selectedDomainRoadmaps = roadmaps.filter((roadmap) => roadmap.domain_id === user.domain.id)
   const continueRoadmap = roadmaps.find((roadmap) => roadmap.is_started && roadmap.progress_percentage < 100)
   const totalRequiredSteps = progressSummaries.reduce((total, summary) => total + summary.total_required_steps, 0)
   const totalCompletedSteps = progressSummaries.reduce((total, summary) => total + summary.completed_required_steps, 0)
   const overallProgress = totalRequiredSteps ? Math.round((totalCompletedSteps / totalRequiredSteps) * 100) : 0
-
   return (
     <div className="mx-auto w-full max-w-7xl">
       <section className="mb-5 flex flex-col gap-4 overflow-hidden rounded-3xl border border-teal/15 bg-gradient-to-r from-teal-tint via-white to-violet-tint p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
@@ -294,7 +296,6 @@ export default function Dashboard() {
           <Button type="button" variant="secondary" className="px-3 py-2 text-sm" onClick={() => setRetryCount((count) => count + 1)}>Retry</Button>
         </div>
       )}
-
       <div className="mt-6 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section aria-labelledby="continue-learning-heading">
           <div className="mb-3">
@@ -321,7 +322,7 @@ export default function Dashboard() {
               <div className="mt-2"><ProgressBar value={continueRoadmap.progress_percentage} label={`${continueRoadmap.title} completion`} /></div>
               <Button to={`/roadmaps/${continueRoadmap.id}`} className="mt-4">Continue learning</Button>
             </Card>
-          ) : roadmaps.length === 0 ? (
+          ) : selectedDomainRoadmaps.length === 0 ? (
             <Card className="p-5 sm:p-6">
               <h3 className="font-bold text-heading">No published roadmaps for {user.domain.name} yet.</h3>
               <p className="mt-1 text-sm leading-6 text-muted">Your progress in other domains remains saved. You can update your learning focus from your profile.</p>
@@ -335,7 +336,6 @@ export default function Dashboard() {
             </Card>
           )}
         </section>
-
       </div>
     </div>
   )
@@ -345,7 +345,7 @@ export function RoadmapsPage() {
   const { user } = useAuth()
   const [roadmaps, setRoadmaps] = useState<RoadmapWithProgress[]>([])
   const [search, setSearch] = useState('')
-  const [selectedDomain, setSelectedDomain] = useState('all')
+  const [selectedDomain, setSelectedDomain] = useState<number | null>(null)
   const [sortOrder, setSortOrder] = useState<'default' | 'difficulty' | 'duration'>('default')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -364,7 +364,7 @@ export function RoadmapsPage() {
     const requestKey = `${user.id}:${user.domain.id}:${retryCount}`
     const request = roadmapRequestRef.current?.key === requestKey
       ? roadmapRequestRef.current.promise
-      : getRoadmaps()
+      : getRoadmaps({ all_domains: true })
     roadmapRequestRef.current = { key: requestKey, promise: request }
     void request
       .then((items) => {
@@ -385,12 +385,12 @@ export function RoadmapsPage() {
     return () => { current = false }
   }, [user?.id, user?.domain.id, retryCount])
 
-  const domains = [...new Set(roadmaps.map((roadmap) => roadmap.domain.name))]
+  const domains = [...new Map(roadmaps.map((roadmap) => [roadmap.domain_id, roadmap.domain.name]))]
   const normalizedSearch = search.trim().toLowerCase()
   const filtered = roadmaps.filter((roadmap) => {
     const description = typeof roadmap.description === 'string' ? roadmap.description : ''
     const matchesSearch = `${roadmap.title} ${description}`.toLowerCase().includes(normalizedSearch)
-    const matchesDomain = selectedDomain === 'all' || roadmap.domain.name === selectedDomain
+    const matchesDomain = selectedDomain === null || roadmap.domain_id === selectedDomain
     return matchesSearch && matchesDomain
   })
   const difficultyRank: Record<RoadmapWithProgress['difficulty'], number> = {
@@ -408,10 +408,10 @@ export function RoadmapsPage() {
       return leftDuration - rightDuration
     })
   }
-  const hasActiveFilters = Boolean(search.trim()) || selectedDomain !== 'all' || sortOrder !== 'default'
+  const hasActiveFilters = Boolean(search.trim()) || selectedDomain !== null || sortOrder !== 'default'
   const clearFilters = () => {
     setSearch('')
-    setSelectedDomain('all')
+    setSelectedDomain(null)
     setSortOrder('default')
   }
 
@@ -424,24 +424,24 @@ export function RoadmapsPage() {
       </header>
       {!loading && !error && roadmaps.length > 0 && (
         <section className="mb-6 space-y-4" aria-label="Roadmap filters">
-          <div className="flex flex-wrap gap-2" aria-label="Filter by domain">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by domain">
             <button
               type="button"
-              aria-pressed={selectedDomain === 'all'}
-              onClick={() => setSelectedDomain('all')}
-              className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${selectedDomain === 'all' ? 'bg-gradient-brand text-white shadow-md shadow-teal/20' : 'border border-line bg-white text-body hover:bg-teal-tint'}`}
+              aria-pressed={selectedDomain === null}
+              onClick={() => setSelectedDomain(null)}
+              className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${selectedDomain === null ? 'bg-gradient-brand text-white shadow-md shadow-teal/20' : 'border border-line bg-white text-body hover:bg-teal-tint'}`}
             >
               All Roadmaps
             </button>
-            {domains.map((domain) => (
+            {domains.map(([domainId, domainName]) => (
               <button
-                key={domain}
+                key={domainId}
                 type="button"
-                aria-pressed={selectedDomain === domain}
-                onClick={() => setSelectedDomain(domain)}
-                className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${selectedDomain === domain ? 'bg-gradient-brand text-white shadow-md shadow-teal/20' : 'border border-line bg-white text-body hover:bg-teal-tint'}`}
+                aria-pressed={selectedDomain === domainId}
+                onClick={() => setSelectedDomain(domainId)}
+                className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${selectedDomain === domainId ? 'bg-gradient-brand text-white shadow-md shadow-teal/20' : 'border border-line bg-white text-body hover:bg-teal-tint'}`}
               >
-                {domain}
+                {domainName}
               </button>
             ))}
           </div>
@@ -588,7 +588,7 @@ export function MyProgressPage() {
     let current = true
     setLoading(true)
     setError('')
-    Promise.all([getMyRoadmapProgress(), getRoadmaps()])
+    Promise.all([getMyRoadmapProgress(), getRoadmaps({ all_domains: true })])
       .then(([progress, roadmaps]) => {
         if (!current) return
         setSummaries(progress)
@@ -729,8 +729,53 @@ export function ProfilePage() {
   )
 }
 
+function LessonInstructions({ content }: { content: string }) {
+  const blocks = content.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean)
+  return (
+    <div className="space-y-4">
+      {blocks.map((block, index) => {
+        const heading = block.match(/^## ([^\n]+)\n?([\s\S]*)$/)
+        const body = heading ? heading[2].trim() : block
+        let contentBlock: ReactNode
+        if (body.startsWith('```')) {
+          return (
+            <div key={index}>
+              {heading && <h3 className="mb-2 text-base font-bold text-heading">{heading[1]}</h3>}
+              <pre className="overflow-x-auto rounded-xl border border-line bg-page p-4 text-sm leading-6 text-heading">
+                <code>{body.replace(/^```[^\n]*\n?/, '').replace(/\n?```$/, '')}</code>
+              </pre>
+            </div>
+          )
+        }
+        const lines = body.split('\n')
+        if (lines.every((line) => line.startsWith('- '))) {
+          contentBlock = (
+            <ul className="list-inside list-disc space-y-1 text-sm leading-6 text-body">
+              {lines.map((line, lineIndex) => <li key={`${lineIndex}:${line}`}>{line.slice(2)}</li>)}
+            </ul>
+          )
+        } else {
+          contentBlock = <p className="whitespace-pre-line text-sm leading-7 text-body">{body}</p>
+        }
+        return (
+          <div key={index}>
+            {heading && <h3 className="mb-2 text-base font-bold text-heading">{heading[1]}</h3>}
+            {contentBlock}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const getLessonSection = (content: string, section: string): string => {
+  const match = content.match(new RegExp(`(?:^|\\n)## ${section}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`))
+  return match?.[1]?.trim() ?? ''
+}
+
 export function RoadmapDetail() {
   const { roadmapId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const numericRoadmapId = Number(roadmapId)
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
   const [progress, setProgress] = useState<RoadmapProgress | null>(null)
@@ -738,23 +783,33 @@ export function RoadmapDetail() {
   const [starting, setStarting] = useState(false)
   const [pendingStep, setPendingStep] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
+    let current = true
+    setLoading(true)
+    setError('')
     if (!Number.isInteger(numericRoadmapId) || numericRoadmapId < 1) {
       setError('Roadmap not found.')
       setLoading(false)
-      return
+      return () => { current = false }
     }
     Promise.all([getRoadmap(numericRoadmapId), getRoadmapProgress(numericRoadmapId)])
       .then(([roadmapData, progressData]) => {
-        setRoadmap({ ...roadmapData, steps: progressData.steps })
-        setProgress(progressData)
+        if (current) {
+          setRoadmap({ ...roadmapData, steps: progressData.steps })
+          setProgress(progressData)
+        }
       })
       .catch((requestError: unknown) => {
-        setError(getApiErrorMessage(requestError, 'Unable to load this roadmap. Please try again.'))
+        if (current) {
+          console.error('Unable to load roadmap learning content.', requestError)
+          setError(getApiErrorMessage(requestError, 'Unable to load this roadmap. Please try again.'))
+        }
       })
-      .finally(() => setLoading(false))
-  }, [numericRoadmapId])
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [numericRoadmapId, retryCount])
 
   const changeCompletion = async (stepId: number, isCompleted: boolean) => {
     setPendingStep(stepId)
@@ -764,6 +819,7 @@ export function RoadmapDetail() {
       setProgress(authoritativeProgress)
       setRoadmap((current) => current ? { ...current, steps: authoritativeProgress.steps } : current)
     } catch (requestError: unknown) {
+      console.error('Unable to save lesson completion.', requestError)
       setError(
         getApiErrorMessage(requestError, 'Unable to save your progress. Please try again.'),
       )
@@ -779,7 +835,10 @@ export function RoadmapDetail() {
       const startedProgress = await startRoadmap(numericRoadmapId)
       setProgress(startedProgress)
       setRoadmap((current) => current ? { ...current, steps: startedProgress.steps } : current)
+      const firstRequiredStep = startedProgress.steps.find((step) => step.is_required)
+      if (firstRequiredStep) setSearchParams({ step: String(firstRequiredStep.id) })
     } catch (requestError: unknown) {
+      console.error('Unable to start roadmap.', requestError)
       setError(getApiErrorMessage(requestError, 'Unable to start this roadmap. Please try again.'))
     } finally {
       setStarting(false)
@@ -787,111 +846,170 @@ export function RoadmapDetail() {
   }
 
   if (loading) {
-    return <div className="mx-auto max-w-5xl px-5 py-8 text-muted" role="status">Loading roadmap…</div>
+    return <div className="mx-auto max-w-7xl py-8 text-muted" role="status">Loading roadmap…</div>
   }
   if (error && !roadmap) {
-    return <div className="mx-auto max-w-5xl px-5 py-8 text-heading" role="alert">{error}</div>
+    return (
+      <Card className="mx-auto max-w-3xl p-6" role="alert">
+        <h1 className="font-bold text-heading">Roadmap could not be loaded.</h1>
+        <p className="mt-2 text-sm text-muted">{error}</p>
+        <Button type="button" variant="secondary" className="mt-4" onClick={() => setRetryCount((count) => count + 1)}>Retry</Button>
+      </Card>
+    )
   }
   if (!roadmap || !progress) {
     return null
   }
 
+  const steps = [...(roadmap.steps ?? [])].sort((left, right) => left.position - right.position)
+  const firstIncompleteStep = steps.find((step) => step.is_required && !step.is_completed)
+    ?? steps.find((step) => !step.is_completed)
+    ?? steps[0]
+  const requestedStepId = Number(searchParams.get('step'))
+  const currentStep = steps.find((step) => step.id === requestedStepId) ?? firstIncompleteStep
+  const currentStepIndex = currentStep ? steps.findIndex((step) => step.id === currentStep.id) : -1
+  const isRoadmapComplete = progress.total_required_steps > 0
+    && progress.completed_required_steps >= progress.total_required_steps
+  const goToStep = (step: RoadmapStep) => setSearchParams({ step: String(step.id) })
+
   return (
-    <div className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-9">
-      <Link to="/dashboard" className="text-sm font-semibold text-teal-hover hover:text-violet">← Back to dashboard</Link>
+    <div className="mx-auto w-full max-w-7xl">
+      <Link to="/roadmaps" className="text-sm font-semibold text-teal-hover hover:text-violet">← Back to roadmaps</Link>
       <Card className="mt-4 p-5 sm:p-7">
-        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
           <span className="rounded-full bg-teal-tint px-3 py-1 text-teal-hover">{roadmap.domain.name}</span>
-          <span className="rounded-full bg-violet-tint px-3 py-1 capitalize text-violet">{roadmap.difficulty}</span>
+          {roadmap.difficulty && <span className="rounded-full bg-violet-tint px-3 py-1 capitalize text-violet">{roadmap.difficulty}</span>}
           {roadmap.estimated_hours > 0 && <span className="rounded-full bg-page px-3 py-1 text-muted">{roadmap.estimated_hours} estimated hours</span>}
         </div>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">{roadmap.title}</h1>
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-heading sm:text-3xl">{roadmap.title}</h1>
         <p className="mt-3 whitespace-pre-line leading-7 text-body">{roadmap.description}</p>
-        {!progress.is_started && (
-          <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-teal-tint/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-6 text-body">Start this roadmap to save it to your learning space and track your progress.</p>
-            <Button type="button" onClick={() => void beginRoadmap()} disabled={starting} className="w-full shrink-0 sm:w-auto">
-              {starting ? 'Starting…' : 'Start learning'}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex justify-between gap-3 text-sm font-semibold">
+              <span className="text-muted">{progress.completed_required_steps} of {progress.total_required_steps} required lessons complete</span>
+              <span className="text-teal-hover">{Math.round(progress.progress_percentage)}%</span>
+            </div>
+            <ProgressBar value={progress.progress_percentage} label={`${roadmap.title} completion`} />
+          </div>
+          {!progress.is_started ? (
+            <Button type="button" onClick={() => void beginRoadmap()} disabled={starting || steps.length === 0} className="w-full sm:w-auto">
+              {starting ? 'Starting…' : 'Start Learning'}
             </Button>
-          </div>
-        )}
-        <div className="mt-5">
-          <div className="mb-2 flex justify-between text-sm font-semibold">
-            <span className="text-muted">
-              {progress.completed_required_steps} of {progress.total_required_steps} required steps complete
-            </span>
-            <span className="text-teal-hover">{Math.round(progress.progress_percentage)}%</span>
-          </div>
-          <div
-            className="h-3 overflow-hidden rounded-full bg-teal-tint"
-            role="progressbar"
-            aria-label={`${roadmap.title} completion`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(progress.progress_percentage)}
-          >
-            <div className="h-full rounded-full bg-gradient-brand transition-all duration-300" style={{ width: `${progress.progress_percentage}%` }} />
-          </div>
+          ) : (
+            <Button type="button" onClick={() => { if (firstIncompleteStep) goToStep(firstIncompleteStep) }} disabled={!firstIncompleteStep} className="w-full sm:w-auto">
+              {isRoadmapComplete ? 'Review Roadmap' : 'Continue Learning'}
+            </Button>
+          )}
         </div>
       </Card>
       {error && <p role="alert" className="mt-5 rounded-xl border border-coral/40 bg-coral-tint px-4 py-3 text-sm font-semibold text-heading">{error}</p>}
-      <ol className="mt-5 space-y-3" aria-label="Roadmap steps">
-        {roadmap.steps?.map((step) => (
-          <li key={step.id}>
-          <Card className={`p-5 sm:p-6 ${step.is_completed ? 'bg-teal-tint/50' : ''}`}>
-            <div className="flex items-start gap-4">
-              <input
-                type="checkbox"
-                checked={step.is_completed}
-                disabled={pendingStep === step.id}
-                onChange={(event) => void changeCompletion(step.id, event.target.checked)}
-                aria-label={`Mark ${step.title} ${step.is_completed ? 'incomplete' : 'complete'}`}
-                className="mt-1 h-5 w-5 shrink-0 accent-teal"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className={`text-lg font-bold ${step.is_completed ? 'text-teal-hover' : 'text-heading'}`}>
-                    {step.position}. {step.title}
-                  </h2>
-                  {!step.is_required && <span className="rounded-full bg-violet-tint px-2.5 py-1 text-xs font-semibold text-violet">Optional</span>}
-                  {step.estimated_minutes > 0 && <span className="text-xs text-muted">{step.estimated_minutes} min</span>}
-                </div>
-                {step.description && <p className="mt-2 whitespace-pre-line text-sm leading-6 text-body">{step.description}</p>}
-                {step.instructions && <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted">{step.instructions}</p>}
-                {step.learning_objectives.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-teal-hover">Learning objectives</h3>
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-body">
-                      {step.learning_objectives.map((objective) => <li key={objective}>{objective}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {step.resources.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-violet">Resources</h3>
-                    <ul className="mt-2 space-y-2">
-                      {step.resources.map((resource) => (
-                        <li key={resource.id}>
-                          {getSafeResourceUrl(resource.url) ? (
-                            <a href={getSafeResourceUrl(resource.url) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-teal-hover underline decoration-teal/40 underline-offset-4 hover:text-violet">
-                              {resource.title}
-                            </a>
-                          ) : (
-                            <span className="text-sm font-semibold text-muted">{resource.title} (invalid link)</span>
-                          )}
-                          <span className="ml-2 text-xs capitalize text-muted">{resource.resource_type}{resource.is_recommended ? ' · Recommended' : ''}</span>
-                          {resource.description && <p className="mt-1 text-xs text-muted">{resource.description}</p>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+      {steps.length === 0 ? (
+        <Card className="mt-5 p-6" role="status">
+          <h2 className="font-bold text-heading">Lessons are not available yet.</h2>
+          <p className="mt-1 text-sm text-muted">The roadmap administrator needs to add lessons before learning can begin.</p>
+        </Card>
+      ) : (
+        <>
+          <details className="mt-5 rounded-2xl border border-line bg-white p-4 lg:hidden">
+            <summary className="cursor-pointer font-semibold text-heading">Lessons ({steps.length})</summary>
+            <ol className="mt-3 space-y-1">
+              {steps.map((step) => (
+                <li key={step.id}>
+                  <button type="button" aria-current={step.id === currentStep?.id ? 'step' : undefined} onClick={() => goToStep(step)} className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${step.id === currentStep?.id ? 'bg-teal-tint font-semibold text-teal-hover' : 'text-body hover:bg-page'}`}>
+                    <span aria-hidden="true">{step.is_completed ? '✓' : step.position}</span>
+                    <span className="min-w-0 flex-1">{step.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </details>
+          <div className="mt-5 grid items-start gap-4 lg:grid-cols-[220px_minmax(0,1fr)_250px]">
+            <aside className="sticky top-20 hidden max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-line bg-white p-3 lg:block">
+              <h2 className="px-2 py-2 text-sm font-bold text-heading">Course lessons</h2>
+              <ol className="space-y-1">
+                {steps.map((step) => (
+                  <li key={step.id}>
+                    <button type="button" aria-current={step.id === currentStep?.id ? 'step' : undefined} onClick={() => goToStep(step)} className={`flex min-h-11 w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${step.id === currentStep?.id ? 'bg-teal-tint font-semibold text-teal-hover' : 'text-body hover:bg-page'}`}>
+                      <span aria-hidden="true" className={step.is_completed ? 'font-bold text-teal-hover' : 'text-muted'}>{step.is_completed ? '✓' : step.position}</span>
+                      <span className="min-w-0 flex-1">{step.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-4 border-t border-line px-2 pt-3">
+                <p className="mb-2 text-xs text-muted">{progress.completed_required_steps} of {progress.total_required_steps} required complete · {Math.round(progress.progress_percentage)}%</p>
+                <ProgressBar value={progress.progress_percentage} label={`${roadmap.title} completion`} />
               </div>
-            </div>
-          </Card>
-          </li>
-        ))}
-      </ol>
+            </aside>
+
+            <section id="lesson-content" className="min-w-0" aria-live="polite">
+              {currentStep && (
+                <Card className="p-5 sm:p-7">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted">
+                    <span>Lesson {currentStep.position} of {steps.length}</span>
+                    {currentStep.estimated_minutes > 0 && <span>· {currentStep.estimated_minutes} min</span>}
+                    {!currentStep.is_required && <span className="rounded-full bg-violet-tint px-2.5 py-1 text-violet">Optional</span>}
+                  </div>
+                  <h2 className="mt-3 text-2xl font-extrabold text-heading">{currentStep.title}</h2>
+                  {currentStep.description && !getLessonSection(currentStep.instructions, 'Explanation') && (
+                    <p className="mt-3 whitespace-pre-line text-sm leading-7 text-body">{currentStep.description}</p>
+                  )}
+                  {currentStep.learning_objectives.length > 0 && (
+                    <div className="mt-5 rounded-xl bg-teal-tint/60 p-4">
+                      <h3 className="text-sm font-bold text-heading">Learning objectives</h3>
+                      <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-body">
+                        {currentStep.learning_objectives.map((objective) => <li key={objective}>{objective}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  <div className="mt-6">
+                    <LessonInstructions content={currentStep.instructions || currentStep.description} />
+                  </div>
+                  <div className="mt-7 flex flex-col gap-2 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <Button type="button" variant="secondary" onClick={() => currentStepIndex > 0 && goToStep(steps[currentStepIndex - 1])} disabled={currentStepIndex <= 0} className="w-full sm:w-auto">Previous Lesson</Button>
+                    <Button type="button" onClick={() => void changeCompletion(currentStep.id, !currentStep.is_completed)} disabled={pendingStep === currentStep.id || (!progress.is_started && !currentStep.is_completed)} className="w-full sm:w-auto">
+                      {pendingStep === currentStep.id ? 'Saving…' : currentStep.is_completed ? 'Mark as Incomplete' : 'Mark as Complete'}
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => currentStepIndex < steps.length - 1 && goToStep(steps[currentStepIndex + 1])} disabled={currentStepIndex < 0 || currentStepIndex >= steps.length - 1} className="w-full sm:w-auto">Next Lesson</Button>
+                  </div>
+                </Card>
+              )}
+            </section>
+
+            <aside className="space-y-4">
+              <Card className="p-5">
+                <h2 className="font-bold text-heading">Learning resources</h2>
+                {currentStep?.resources.length ? (
+                  <ul className="mt-3 space-y-3">
+                    {currentStep.resources.map((resource) => {
+                      const safeUrl = getSafeResourceUrl(resource.url)
+                      return (
+                        <li key={resource.id}>
+                          {safeUrl ? (
+                            <a href={safeUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-teal-hover underline decoration-teal/40 underline-offset-4 hover:text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">{resource.title}</a>
+                          ) : <span className="text-sm font-semibold text-muted">{resource.title} (invalid link)</span>}
+                          {resource.description && <p className="mt-1 text-xs leading-5 text-muted">{resource.description}</p>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : <p className="mt-2 text-sm text-muted">No resources have been added for this lesson.</p>}
+              </Card>
+              <Card className="p-5">
+                <h2 className="font-bold text-heading">Practical task</h2>
+                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-body">
+                  {getLessonSection(currentStep?.instructions ?? '', 'Practical exercise') || 'Review the lesson and practice the learning objectives.'}
+                </p>
+              </Card>
+              <Card className="p-5">
+                <h2 className="font-bold text-heading">Roadmap progress</h2>
+                <p className="mt-2 text-sm text-muted">{progress.completed_required_steps} of {progress.total_required_steps} required lessons complete</p>
+                <div className="mt-3"><ProgressBar value={progress.progress_percentage} label={`${roadmap.title} completion`} /></div>
+              </Card>
+            </aside>
+          </div>
+        </>
+      )}
     </div>
   )
 }

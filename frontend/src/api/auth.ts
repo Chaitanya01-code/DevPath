@@ -55,7 +55,11 @@ export const getAdminMe = async (): Promise<Admin> => {
   return response.data
 }
 
-export const getRoadmaps = async (filters?: { difficulty?: string }): Promise<RoadmapWithProgress[]> => {
+export const getRoadmaps = async (filters?: {
+  difficulty?: string
+  domain_id?: number
+  all_domains?: boolean
+}): Promise<RoadmapWithProgress[]> => {
   const response = await apiClient.get<RoadmapWithProgress[]>('/roadmaps', {
     params: filters,
     timeout: 20000,

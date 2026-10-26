@@ -19,7 +19,7 @@ export default function Footer() {
           <Link to="/" className="transition-colors hover:text-teal-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
             Home
           </Link>
-          <Link to="/dashboard" className="transition-colors hover:text-teal-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
+          <Link to="/roadmaps" className="transition-colors hover:text-teal-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">
             Roadmaps
           </Link>
           <Link to="/login" className="transition-colors hover:text-teal-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal">

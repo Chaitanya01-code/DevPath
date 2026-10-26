@@ -257,7 +257,7 @@ class DomainService:
         domain_id: int | None,
         difficulty: str | None = None,
     ) -> list[RoadmapWithProgress]:
-        if domain_id is None or domain_id < 1:
+        if domain_id is not None and domain_id < 1:
             return []
 
         roadmaps = self.repository.list_roadmaps(
@@ -297,9 +297,9 @@ class DomainService:
     def get_student_roadmap_content(self, roadmap_id: int, domain_id: int | None) -> Roadmap:
         if domain_id is None or domain_id < 1:
             raise ContentNotFoundError("Roadmap not found")
-        roadmap = self.get_roadmap(roadmap_id, public_only=True)
-        if roadmap.domain_id != domain_id:
+        if self.repository.get_active_by_id(domain_id) is None:
             raise ContentNotFoundError("Roadmap not found")
+        roadmap = self.get_roadmap(roadmap_id, public_only=True)
         return roadmap
 
     def get_student_roadmap(
@@ -357,6 +357,8 @@ class DomainService:
             record = UserStepProgress(user_id=user_id, step_id=step_id, is_completed=is_completed)
             record.completed_at = datetime.now(timezone.utc) if is_completed else None
         else:
+            if record.is_completed == is_completed:
+                return self._roadmap_progress(roadmap, user_id)
             record.is_completed = is_completed
             record.completed_at = datetime.now(timezone.utc) if is_completed else None
         try:

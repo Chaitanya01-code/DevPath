@@ -120,7 +120,7 @@ const lesson = (
 ): StarterStep => ({
   title,
   description,
-  instructions: `Practical activity: ${activity}`,
+  instructions: `## Explanation\n${description}\n\n## Practical exercise\n${activity}\n\n## Key takeaways\n- ${description}`,
   learning_objectives: [description],
   position: 0,
   estimated_minutes: estimatedMinutes,
@@ -163,7 +163,7 @@ const starterRoadmapTemplates: StarterRoadmap[] = [
   {
     domainName: 'Artificial Intelligence and Machine Learning',
     domainSlug: 'ai-machine-learning',
-    domainAliases: ['artificial-intelligence-machine-learning'],
+    domainAliases: ['ai-machine-learning', 'aiml', 'artificial-intelligence-machine-learning'],
     domainDescription: 'Explore artificial intelligence, machine learning, and responsible data-driven systems.',
     title: 'Artificial Intelligence and Machine Learning Beginner Roadmap',
     slug: 'artificial-intelligence-machine-learning-beginner',
@@ -417,7 +417,11 @@ export default function AdminDashboard() {
       let currentRoadmaps = await getAdminRoadmaps()
       const newlyCreatedRoadmapIds = new Set<number>()
       for (const { template, domain } of templateDomains) {
-        let roadmap = currentRoadmaps.find((item) => item.slug === template.slug)
+        let roadmap = currentRoadmaps.find(
+          (item) =>
+            item.domain_id === domain.id &&
+            (item.slug === template.slug || normalize(item.title) === normalize(template.title)),
+        )
         if (!roadmap) {
           roadmap = await createAdminRoadmap({
             domain_id: domain.id,

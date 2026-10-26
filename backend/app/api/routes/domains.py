@@ -36,9 +36,15 @@ def get_roadmaps(
     session: DatabaseSession,
     user: CurrentUser,
     difficulty: str | None = Query(default=None, pattern="^(beginner|intermediate|advanced)$"),
+    domain_id: int | None = Query(default=None, gt=0),
+    all_domains: bool = Query(default=False),
 ) -> list[RoadmapWithProgress]:
+    if all_domains and domain_id is not None:
+        raise HTTPException(status_code=422, detail="Choose all domains or one domain")
     return DomainService(session).list_student_roadmaps(
-        user.id, user.domain_id, difficulty
+        user.id,
+        None if all_domains else domain_id or user.domain_id,
+        difficulty,
     )
 
 
