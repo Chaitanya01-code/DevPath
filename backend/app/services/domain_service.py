@@ -1,11 +1,18 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.domain import Domain, Roadmap, RoadmapStep, StepResource, UserStepProgress
+from app.models.domain import (
+    Domain,
+    Roadmap,
+    RoadmapStep,
+    StepResource,
+    UserLearningActivity,
+    UserStepProgress,
+)
 from app.models.user import User
 from app.repositories.domain_repository import DomainRepository
 from app.repositories.user_repository import UserRepository
@@ -13,6 +20,7 @@ from app.schemas.user import (
     AdminStatistics,
     DomainUpdate,
     DomainWrite,
+    LearningSummaryRead,
     ProgressSummary,
     RoadmapUpdate,
     RoadmapWrite,
@@ -25,6 +33,9 @@ from app.schemas.user import (
     ResourceUpdate,
     ResourceWrite,
     StudentUpdate,
+    LearningActivityRead,
+    LearningAchievementRead,
+    LearningRoadmapProgressRead,
 )
 
 
@@ -353,20 +364,179 @@ class DomainService:
         if step is None or step.roadmap_id != roadmap_id:
             raise ContentNotFoundError("Step not found in this roadmap")
         record = self.repository.get_progress_record(user_id, step_id)
+        occurred_at: datetime | None = None
         if record is None:
             record = UserStepProgress(user_id=user_id, step_id=step_id, is_completed=is_completed)
-            record.completed_at = datetime.now(timezone.utc) if is_completed else None
+            if is_completed:
+                occurred_at = datetime.now(timezone.utc)
+                record.completed_at = occurred_at
         else:
             if record.is_completed == is_completed:
                 return self._roadmap_progress(roadmap, user_id)
             record.is_completed = is_completed
-            record.completed_at = datetime.now(timezone.utc) if is_completed else None
+            if is_completed:
+                occurred_at = datetime.now(timezone.utc)
+                record.completed_at = occurred_at
+            else:
+                record.completed_at = None
         try:
-            self.repository.save_progress(record)
+            if occurred_at is not None:
+                self.repository.save_completion_activity(record, occurred_at)
+            else:
+                self.repository.save_progress(record)
         except IntegrityError as error:
             self.session.rollback()
             raise ContentConflictError("Unable to save step progress; retry the request") from error
         return self._roadmap_progress(roadmap, user_id)
+
+    @staticmethod
+    def streak_totals(activity_days: set[date], today: date) -> tuple[int, int]:
+        if not activity_days:
+            return 0, 0
+        ordered = sorted(activity_days)
+        longest = 0
+        run = 0
+        previous: date | None = None
+        for activity_day in ordered:
+            run = run + 1 if previous and activity_day == previous + timedelta(days=1) else 1
+            longest = max(longest, run)
+            previous = activity_day
+
+        last_activity = ordered[-1]
+        if last_activity < today - timedelta(days=1):
+            return 0, longest
+        current = 1
+        cursor = last_activity
+        while cursor - timedelta(days=1) in activity_days:
+            cursor -= timedelta(days=1)
+            current += 1
+        return current, longest
+
+    @staticmethod
+    def _streak_milestone_date(activity_days: set[date], target: int) -> date | None:
+        run = 0
+        previous: date | None = None
+        for activity_day in sorted(activity_days):
+            run = run + 1 if previous and activity_day == previous + timedelta(days=1) else 1
+            if run >= target:
+                return activity_day
+            previous = activity_day
+        return None
+
+    def learning_summary(self, user_id: UUID) -> LearningSummaryRead:
+        self.get_student(user_id)
+        activity_rows = self.repository.list_learning_activities(user_id)
+        legacy_rows = self.repository.list_legacy_completed_activities(user_id)
+        activities: dict[tuple[int, datetime], LearningActivityRead] = {}
+
+        for record, step_title, roadmap_id, roadmap_title in [*activity_rows, *legacy_rows]:
+            occurred_at = (
+                record.occurred_at
+                if isinstance(record, UserLearningActivity)
+                else record.completed_at
+            )
+            if occurred_at is None:
+                continue
+            if occurred_at.tzinfo is None:
+                occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+            else:
+                occurred_at = occurred_at.astimezone(timezone.utc)
+            activities[(record.step_id, occurred_at)] = LearningActivityRead(
+                step_id=record.step_id,
+                step_title=step_title,
+                roadmap_id=roadmap_id,
+                roadmap_title=roadmap_title,
+                occurred_at=occurred_at,
+            )
+
+        activity_days = {activity.occurred_at.date() for activity in activities.values()}
+        today = datetime.now(timezone.utc).date()
+        current_streak, longest_streak = self.streak_totals(activity_days, today)
+        roadmap_rows = self.repository.student_learning_roadmaps(user_id)
+        activity_dates_by_roadmap = self.repository.student_activity_dates_by_roadmap(user_id)
+        legacy_dates_by_roadmap = self.repository.student_legacy_activity_dates_by_roadmap(user_id)
+        roadmap_progress: list[LearningRoadmapProgressRead] = []
+        for roadmap_id, title, domain_name, difficulty, required, completed in roadmap_rows:
+            last_activity = activity_dates_by_roadmap.get(roadmap_id) or legacy_dates_by_roadmap.get(roadmap_id)
+            if last_activity is not None and last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+            percentage = round(completed / required * 100, 2) if required else 0
+            roadmap_progress.append(
+                LearningRoadmapProgressRead(
+                    roadmap_id=roadmap_id,
+                    roadmap_title=title,
+                    domain_name=domain_name,
+                    difficulty=difficulty,
+                    completed_required_steps=completed,
+                    total_required_steps=required,
+                    progress_percentage=percentage,
+                    last_activity_at=last_activity,
+                )
+            )
+
+        required_total = sum(item.total_required_steps for item in roadmap_progress)
+        required_completed = sum(item.completed_required_steps for item in roadmap_progress)
+        completed_roadmaps = [
+            item for item in roadmap_progress
+            if item.total_required_steps > 0 and item.progress_percentage >= 100
+        ]
+        achievements: list[LearningAchievementRead] = []
+        first_activity_at = min(
+            (activity.occurred_at for activity in activities.values()), default=None
+        )
+        if first_activity_at is not None:
+            achievements.append(LearningAchievementRead(
+                key="first-lesson",
+                name="First lesson",
+                description="Completed your first learning lesson.",
+                earned_at=first_activity_at.date(),
+            ))
+        for streak_length, key, label in (
+            (3, "three-day-streak", "Three-day streak"),
+            (7, "seven-day-streak", "Seven-day streak"),
+        ):
+            milestone_date = self._streak_milestone_date(activity_days, streak_length)
+            if milestone_date is not None:
+                achievements.append(LearningAchievementRead(
+                    key=key,
+                    name=label,
+                    description=f"Learned on {streak_length} consecutive days.",
+                    earned_at=milestone_date,
+                ))
+        completed_roadmap_dates = [
+            item.last_activity_at.date()
+            for item in completed_roadmaps
+            if item.last_activity_at is not None
+        ]
+        if completed_roadmap_dates:
+            achievements.append(LearningAchievementRead(
+                key="first-roadmap-completed",
+                name="First roadmap completed",
+                description="Completed all required lessons in a roadmap.",
+                earned_at=min(completed_roadmap_dates),
+            ))
+
+        recent_activity = sorted(
+            activities.values(), key=lambda activity: activity.occurred_at, reverse=True
+        )[:25]
+        last_activity_at = recent_activity[0].occurred_at if recent_activity else None
+        return LearningSummaryRead(
+            current_streak=current_streak,
+            longest_streak=longest_streak,
+            has_activity_today=today in activity_days,
+            last_activity_at=last_activity_at,
+            active_days=len(activity_days),
+            activity_dates=sorted(day for day in activity_days if day >= today - timedelta(days=89)),
+            recent_activity=recent_activity,
+            achievements=achievements,
+            roadmaps_started=len(roadmap_progress),
+            roadmaps_completed=len(completed_roadmaps),
+            lessons_completed=len({step_id for step_id, _ in activities}),
+            required_steps_completed=required_completed,
+            required_steps_total=required_total,
+            overall_progress=round(required_completed / required_total * 100, 2) if required_total else 0,
+            roadmaps=roadmap_progress,
+        )
 
     def list_students(
         self, *, query: str | None, page: int, page_size: int

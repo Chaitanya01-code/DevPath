@@ -42,6 +42,11 @@ class UserRepository:
         self.session.commit()
         return self.get_by_id(user.id) or user
 
+    def update_profile(self, user: User, *, name: str) -> User:
+        user.name = name
+        self.session.commit()
+        return self.get_by_id(user.id) or user
+
     def list_students(
         self, *, query: str | None, offset: int, limit: int
     ) -> tuple[list[User], int]:

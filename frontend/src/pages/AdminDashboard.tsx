@@ -45,7 +45,10 @@ import type {
 } from '../types'
 
 type AdminSection = 'overview' | 'domains' | 'roadmaps' | 'students'
+type AdminSidebarMode = 'expanded' | 'collapsed' | 'hidden'
 type AsyncAction = () => Promise<void>
+
+const adminSidebarPreferenceKey = 'devpath.admin.sidebar'
 
 const getSafeResourceUrl = (value: string): string | null => {
   try {
@@ -276,6 +279,10 @@ export default function AdminDashboard() {
   const { admin, logout } = useAdminAuth()
   const navigate = useNavigate()
   const [section, setSection] = useState<AdminSection>('overview')
+  const [sidebarMode, setSidebarMode] = useState<AdminSidebarMode>(() => {
+    const saved = window.localStorage.getItem(adminSidebarPreferenceKey)
+    return saved === 'collapsed' || saved === 'hidden' ? saved : 'expanded'
+  })
   const [statistics, setStatistics] = useState<AdminStatistics | null>(null)
   const [domains, setDomains] = useState<Domain[]>([])
   const [roadmaps, setRoadmaps] = useState<Roadmap[]>([])
@@ -581,8 +588,8 @@ export default function AdminDashboard() {
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number | null = null
-    if (event.key === 'ArrowRight') nextIndex = (index + 1) % sections.length
-    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + sections.length) % sections.length
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % sections.length
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + sections.length) % sections.length
     if (event.key === 'Home') nextIndex = 0
     if (event.key === 'End') nextIndex = sections.length - 1
     if (nextIndex === null) return
@@ -613,56 +620,97 @@ export default function AdminDashboard() {
     const matchesSearch = roadmap.title.toLowerCase().includes(roadmapSearch.trim().toLowerCase())
     return matchesDomain && matchesStatus && matchesSearch
   })
+  const updateSidebarMode = (mode: AdminSidebarMode) => {
+    window.localStorage.setItem(adminSidebarPreferenceKey, mode)
+    setSidebarMode(mode)
+  }
 
   return (
-    <div className="mx-auto w-full max-w-7xl flex-1 px-5 py-6 sm:px-8 sm:py-8">
-      <header className="mb-5 flex items-center justify-between">
-        <span className="text-lg font-extrabold tracking-tight text-heading">
-          DevPath<span className="text-gradient">.</span>
-          <span className="ml-2 rounded-full bg-violet-tint px-2.5 py-1 text-xs font-bold text-violet">Admin</span>
-        </span>
-        <div className="flex items-center gap-3">
-          {admin && <span className="hidden text-sm text-muted sm:block">{admin.username}</span>}
-          <Button variant="secondary" onClick={handleLogout}>Log out</Button>
-        </div>
-      </header>
-
-      <section className="mb-5 rounded-3xl border border-teal/15 bg-gradient-to-r from-teal-tint via-white to-violet-tint p-5 sm:p-6">
-        <p className="text-sm font-bold uppercase tracking-[0.14em] text-violet">Management workspace</p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">Welcome, Admin</h1>
-      </section>
-
-      <div
-        className="mb-5 overflow-x-auto border-b border-line pb-2"
-        role="tablist"
-        aria-label="Admin sections"
-      >
-        <div className="flex w-max min-w-full gap-1">
-          {sections.map((item, index) => (
-            <button
-              key={item.id}
-              id={`admin-tab-${item.id}`}
+    <div className="min-h-screen bg-page">
+      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-7 sm:py-7 lg:px-8">
+        <header className="mb-6 flex items-center justify-between rounded-2xl border border-line/80 bg-white px-4 py-3 shadow-card sm:px-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-brand text-sm font-extrabold text-white shadow-sm">D</span>
+            <div>
+              <p className="text-base font-extrabold tracking-tight text-heading">DevPath<span className="text-gradient">.</span></p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted">Administration</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-4">
+            {sidebarMode === 'hidden' && <Button type="button" variant="secondary" className="min-h-9 px-3" aria-label="Show admin navigation" onClick={() => updateSidebarMode('expanded')}>Show menu</Button>}
+            <Button
               type="button"
-              onClick={() => { setSection(item.id); setError(''); setNotice('') }}
-              onKeyDown={(event) => handleTabKeyDown(event, index)}
-              role="tab"
-              aria-selected={section === item.id}
-              aria-controls="admin-tab-panel"
-              tabIndex={section === item.id ? 0 : -1}
-              className={`min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 ${section === item.id ? 'bg-teal-tint text-teal-hover' : 'text-muted hover:bg-page hover:text-heading'}`}
+              variant="ghost"
+              className="hidden min-h-9 px-3 lg:inline-flex"
+              aria-label={sidebarMode === 'expanded' ? 'Collapse admin navigation' : 'Expand admin navigation'}
+              title={sidebarMode === 'expanded' ? 'Collapse navigation' : 'Expand navigation'}
+              onClick={() => updateSidebarMode(sidebarMode === 'expanded' ? 'collapsed' : 'expanded')}
             >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+              <span aria-hidden="true">☷</span>
+            </Button>
+            {admin && <span className="hidden rounded-full bg-violet-tint px-3 py-1.5 text-xs font-semibold text-violet sm:inline-flex">{admin.username}</span>}
+            <Button variant="secondary" className="min-h-10 px-3 sm:px-4" onClick={handleLogout}>Log out</Button>
+          </div>
+        </header>
+
+        <section className="relative mb-6 flex flex-col gap-5 overflow-hidden rounded-3xl border border-teal/15 bg-gradient-to-r from-teal-tint via-white to-violet-tint p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between sm:p-7">
+          <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border-[30px] border-white/50" />
+          <div className="relative">
+            <p className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.15em] text-violet">
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-teal" />
+              Management workspace
+            </p>
+            <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-heading sm:text-3xl">Welcome, Admin</h1>
+            <p className="mt-1.5 max-w-xl text-sm leading-6 text-body">Manage learning domains, published roadmaps, and student progress from one place.</p>
+          </div>
+          <div className="relative flex flex-wrap gap-2">
+            <Button variant="secondary" className="bg-white/90" onClick={() => { setSection('roadmaps'); setError(''); setNotice('') }}>Manage roadmaps</Button>
+            <Button variant="ghost" className="bg-white/60" onClick={() => { setSection('domains'); setError(''); setNotice('') }}>Domains</Button>
+          </div>
+        </section>
+
+      <div className="flex flex-col items-start gap-4 lg:flex-row">
+      {sidebarMode !== 'hidden' && (
+        <aside className={`w-full shrink-0 rounded-2xl border border-line/80 bg-white p-2 shadow-card lg:sticky lg:top-4 ${sidebarMode === 'collapsed' ? 'lg:w-[4.5rem] lg:p-1.5' : 'lg:w-56'}`}>
+          <nav role="tablist" aria-label="Admin sections" className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+            {sections.map((item, index) => (
+              <button
+                key={item.id}
+                id={`admin-tab-${item.id}`}
+                type="button"
+                onClick={() => { setSection(item.id); setError(''); setNotice('') }}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
+                role="tab"
+                aria-selected={section === item.id}
+                aria-controls="admin-tab-panel"
+                aria-label={sidebarMode === 'collapsed' ? item.label : undefined}
+                title={sidebarMode === 'collapsed' ? item.label : undefined}
+                tabIndex={section === item.id ? 0 : -1}
+                className={`flex min-h-10 shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 ${sidebarMode === 'collapsed' ? 'lg:justify-center lg:px-2' : ''} ${section === item.id ? 'bg-gradient-brand text-white shadow-md shadow-teal/20' : 'text-muted hover:bg-page hover:text-heading'}`}
+              >
+                <span aria-hidden="true" className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-extrabold ${section === item.id ? 'bg-white/20 text-white' : 'bg-page text-teal-hover'}`}>{item.label.slice(0, 1)}</span>
+                <span className={sidebarMode === 'collapsed' ? 'lg:hidden' : ''}>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+          <button
+            type="button"
+            onClick={() => updateSidebarMode('hidden')}
+            className="mt-2 hidden min-h-10 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold text-muted hover:bg-page hover:text-heading focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal lg:flex"
+            aria-label="Hide admin navigation"
+          >
+            <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center text-base">←</span>
+            <span className={sidebarMode === 'collapsed' ? 'lg:hidden' : ''}>Hide navigation</span>
+          </button>
+        </aside>
+      )}
 
       <section
         id="admin-tab-panel"
         role="tabpanel"
         aria-labelledby={`admin-tab-${section}`}
         tabIndex={0}
-        className="min-w-0 focus-visible:outline-none"
+        className="min-w-0 w-full flex-1 rounded-2xl focus-visible:outline-none"
       >
       {error && <p role="alert" className="mb-5 rounded-xl border border-coral/40 bg-coral-tint px-4 py-3 text-sm font-semibold text-heading">{error}</p>}
       {notice && <p role="status" className="mb-5 rounded-xl border border-teal/20 bg-teal-tint px-4 py-3 text-sm font-semibold text-teal-hover">{notice}</p>}
@@ -670,17 +718,41 @@ export default function AdminDashboard() {
         <>
           {section === 'overview' && (
             <>
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-teal-hover">At a glance</p>
+                  <h2 className="mt-1 text-xl font-extrabold tracking-tight text-heading sm:text-2xl">Platform overview</h2>
+                </div>
+                <p className="text-xs font-medium text-muted">Your learning ecosystem, summarized</p>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stats.map((stat) => (
-                  <Card key={stat.label} className="p-5">
-                    <span className={`inline-flex rounded-xl px-3 py-1 text-xs font-bold ${stat.tint}`}>{stat.label}</span>
-                    <p className="mt-4 text-3xl font-extrabold text-heading">{stat.value}</p>
+                  <Card key={stat.label} className="group relative overflow-hidden p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover sm:p-6">
+                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-brand opacity-60" />
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${stat.tint}`}>{stat.label}</span>
+                      <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-gradient-brand opacity-70" />
+                    </div>
+                    <p className="mt-5 text-3xl font-extrabold tracking-tight text-heading">{stat.value}</p>
                   </Card>
                 ))}
               </div>
-              <Card className="mt-4 p-5 text-sm leading-6 text-muted">
-                Learning activity is the total number of completed roadmap steps recorded across students.
-              </Card>
+              <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                <Card className="flex items-start gap-4 bg-gradient-to-r from-white to-teal-tint/60 p-5 sm:p-6">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-teal-tint text-lg font-bold text-teal-hover" aria-hidden="true">↗</span>
+                  <div>
+                    <h3 className="font-bold text-heading">Learning activity</h3>
+                    <p className="mt-1 text-sm leading-6 text-muted">Completed steps reflect recorded student activity across all roadmaps.</p>
+                  </div>
+                </Card>
+                <Card className="flex flex-wrap items-center justify-between gap-3 p-5 sm:p-6">
+                  <div>
+                    <p className="text-sm font-bold text-heading">Keep your content current</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">Review roadmaps and publishing status.</p>
+                  </div>
+                  <Button variant="secondary" className="px-3" onClick={() => { setSection('roadmaps'); setError(''); setNotice('') }}>View roadmaps</Button>
+                </Card>
+              </div>
             </>
           )}
 
@@ -1067,6 +1139,8 @@ export default function AdminDashboard() {
         </>
       )}
       </section>
+      </div>
+      </div>
     </div>
   )
 }

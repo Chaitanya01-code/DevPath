@@ -37,6 +37,7 @@
 
 html {
   min-width: 320px;
+  zoom: 0.8;
   scroll-behavior: smooth;
 }
 

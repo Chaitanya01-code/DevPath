@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from typing import Literal
 from uuid import UUID
@@ -297,6 +297,62 @@ class UserRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfileUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_profile_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Name cannot be blank")
+        return normalized
+
+
+class LearningActivityRead(BaseModel):
+    step_id: int
+    step_title: str
+    roadmap_id: int
+    roadmap_title: str
+    occurred_at: datetime
+
+
+class LearningRoadmapProgressRead(BaseModel):
+    roadmap_id: int
+    roadmap_title: str
+    domain_name: str
+    difficulty: str
+    completed_required_steps: int
+    total_required_steps: int
+    progress_percentage: float
+    last_activity_at: datetime | None
+
+
+class LearningAchievementRead(BaseModel):
+    key: str
+    name: str
+    description: str
+    earned_at: date
+
+
+class LearningSummaryRead(BaseModel):
+    current_streak: int
+    longest_streak: int
+    has_activity_today: bool
+    last_activity_at: datetime | None
+    active_days: int
+    activity_dates: list[date]
+    recent_activity: list[LearningActivityRead]
+    achievements: list[LearningAchievementRead]
+    roadmaps_started: int
+    roadmaps_completed: int
+    lessons_completed: int
+    required_steps_completed: int
+    required_steps_total: int
+    overall_progress: float
+    roadmaps: list[LearningRoadmapProgressRead]
 
 
 RoadmapRead.model_rebuild()

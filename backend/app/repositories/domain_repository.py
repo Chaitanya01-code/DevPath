@@ -1,8 +1,17 @@
-from sqlalchemy import func, select
+from datetime import datetime
+
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
-from app.models.domain import Domain, Roadmap, RoadmapStep, StepResource, UserStepProgress
+from app.models.domain import (
+    Domain,
+    Roadmap,
+    RoadmapStep,
+    StepResource,
+    UserLearningActivity,
+    UserStepProgress,
+)
 from app.models.user import User
 
 
@@ -263,6 +272,115 @@ class DomainRepository:
         self.session.commit()
         self.session.refresh(record)
         return record
+
+    def save_completion_activity(
+        self, record: UserStepProgress, occurred_at: datetime
+    ) -> UserStepProgress:
+        self.session.add(record)
+        self.session.add(
+            UserLearningActivity(
+                user_id=record.user_id,
+                step_id=record.step_id,
+                occurred_at=occurred_at,
+            )
+        )
+        self.session.commit()
+        self.session.refresh(record)
+        return record
+
+    def list_learning_activities(self, user_id: object) -> list[tuple[UserLearningActivity, str, int, str]]:
+        statement = (
+            select(
+                UserLearningActivity,
+                RoadmapStep.title,
+                Roadmap.id,
+                Roadmap.title,
+            )
+            .join(RoadmapStep, RoadmapStep.id == UserLearningActivity.step_id)
+            .join(Roadmap, Roadmap.id == RoadmapStep.roadmap_id)
+            .where(UserLearningActivity.user_id == user_id)
+            .order_by(UserLearningActivity.occurred_at.desc(), UserLearningActivity.id.desc())
+        )
+        return list(self.session.execute(statement).all())
+
+    def list_legacy_completed_activities(
+        self, user_id: object
+    ) -> list[tuple[UserStepProgress, str, int, str]]:
+        statement = (
+            select(UserStepProgress, RoadmapStep.title, Roadmap.id, Roadmap.title)
+            .join(RoadmapStep, RoadmapStep.id == UserStepProgress.step_id)
+            .join(Roadmap, Roadmap.id == RoadmapStep.roadmap_id)
+            .where(
+                UserStepProgress.user_id == user_id,
+                UserStepProgress.is_completed.is_(True),
+                UserStepProgress.completed_at.is_not(None),
+            )
+            .order_by(UserStepProgress.completed_at.desc())
+        )
+        return list(self.session.execute(statement).all())
+
+    def student_learning_roadmaps(self, user_id: object) -> list[tuple[object, ...]]:
+        started_roadmaps = (
+            select(RoadmapStep.roadmap_id)
+            .join(UserStepProgress, UserStepProgress.step_id == RoadmapStep.id)
+            .where(UserStepProgress.user_id == user_id)
+            .distinct()
+        )
+        statement = (
+            select(
+                Roadmap.id,
+                Roadmap.title,
+                Domain.name,
+                Roadmap.difficulty,
+                func.count(case((RoadmapStep.is_required.is_(True), RoadmapStep.id))),
+                func.count(
+                    case(
+                        (
+                            and_(
+                                RoadmapStep.is_required.is_(True),
+                                UserStepProgress.is_completed.is_(True),
+                            ),
+                            RoadmapStep.id,
+                        )
+                    )
+                ),
+            )
+            .join(Domain, Domain.id == Roadmap.domain_id)
+            .join(RoadmapStep, RoadmapStep.roadmap_id == Roadmap.id)
+            .outerjoin(
+                UserStepProgress,
+                and_(
+                    UserStepProgress.step_id == RoadmapStep.id,
+                    UserStepProgress.user_id == user_id,
+                ),
+            )
+            .where(Roadmap.id.in_(started_roadmaps))
+            .group_by(Roadmap.id, Roadmap.title, Domain.name, Roadmap.difficulty)
+            .order_by(Roadmap.title)
+        )
+        return list(self.session.execute(statement).all())
+
+    def student_activity_dates_by_roadmap(self, user_id: object) -> dict[int, datetime]:
+        statement = (
+            select(RoadmapStep.roadmap_id, func.max(UserLearningActivity.occurred_at))
+            .join(UserLearningActivity, UserLearningActivity.step_id == RoadmapStep.id)
+            .where(UserLearningActivity.user_id == user_id)
+            .group_by(RoadmapStep.roadmap_id)
+        )
+        return {roadmap_id: timestamp for roadmap_id, timestamp in self.session.execute(statement).all()}
+
+    def student_legacy_activity_dates_by_roadmap(self, user_id: object) -> dict[int, datetime]:
+        statement = (
+            select(RoadmapStep.roadmap_id, func.max(UserStepProgress.completed_at))
+            .join(UserStepProgress, UserStepProgress.step_id == RoadmapStep.id)
+            .where(
+                UserStepProgress.user_id == user_id,
+                UserStepProgress.is_completed.is_(True),
+                UserStepProgress.completed_at.is_not(None),
+            )
+            .group_by(RoadmapStep.roadmap_id)
+        )
+        return {roadmap_id: timestamp for roadmap_id, timestamp in self.session.execute(statement).all()}
 
     def count_progress(self, roadmap_id: int, user_id: object) -> tuple[int, int, int]:
         required = self.session.scalar(

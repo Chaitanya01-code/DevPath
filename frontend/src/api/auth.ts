@@ -6,6 +6,7 @@ import type {
   DomainPayload,
   Domain,
   LoginPayload,
+  LearningSummary,
   LearningResource,
   MyRoadmapProgressSummary,
   ResourcePayload,
@@ -35,6 +36,18 @@ export const login = async (payload: LoginPayload): Promise<TokenResponse> => {
 
 export const getMe = async (): Promise<User> => {
   const response = await apiClient.get<User>('/users/me')
+  return response.data
+}
+
+export const updateMyProfile = async (name: string): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me', { name })
+  return response.data
+}
+
+export const getMyLearningSummary = async (): Promise<LearningSummary> => {
+  const response = await apiClient.get<LearningSummary>('/users/me/learning-summary', {
+    timeout: 20000,
+  })
   return response.data
 }
 

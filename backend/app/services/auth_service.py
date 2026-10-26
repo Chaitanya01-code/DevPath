@@ -16,7 +16,7 @@ from app.repositories.admin_repository import AdminRepository
 from app.repositories.domain_repository import DomainRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import AdminLoginRequest, LoginRequest, Token
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserProfileUpdate
 
 
 class DuplicateEmailError(Exception):
@@ -121,6 +121,9 @@ class AuthService:
         if self.domains.get_active_by_id(domain_id) is None:
             raise InvalidDomainError
         return self.users.update_domain(user, domain_id)
+
+    def update_user_profile(self, user: User, payload: UserProfileUpdate) -> User:
+        return self.users.update_profile(user, name=payload.name)
 
     def get_user_from_token(self, token: str) -> User:
         subject = self._get_subject(token, expected_role="user")

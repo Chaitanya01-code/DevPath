@@ -132,3 +132,21 @@ class UserStepProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class UserLearningActivity(Base):
+    __tablename__ = "user_learning_activity"
+    __table_args__ = (
+        UniqueConstraint("user_id", "step_id", "occurred_at", name="uq_learning_activity_user_step_time"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    step_id: Mapped[int] = mapped_column(
+        ForeignKey("roadmap_steps.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )

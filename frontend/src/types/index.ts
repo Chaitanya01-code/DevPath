@@ -99,6 +99,50 @@ export interface MyRoadmapProgressSummary {
   progress_percentage: number
 }
 
+export interface LearningActivity {
+  step_id: number
+  step_title: string
+  roadmap_id: number
+  roadmap_title: string
+  occurred_at: string
+}
+
+export interface LearningRoadmapProgress {
+  roadmap_id: number
+  roadmap_title: string
+  domain_name: string
+  difficulty: Difficulty
+  completed_required_steps: number
+  total_required_steps: number
+  progress_percentage: number
+  last_activity_at: string | null
+}
+
+export interface LearningAchievement {
+  key: string
+  name: string
+  description: string
+  earned_at: string
+}
+
+export interface LearningSummary {
+  current_streak: number
+  longest_streak: number
+  has_activity_today: boolean
+  last_activity_at: string | null
+  active_days: number
+  activity_dates: string[]
+  recent_activity: LearningActivity[]
+  achievements: LearningAchievement[]
+  roadmaps_started: number
+  roadmaps_completed: number
+  lessons_completed: number
+  required_steps_completed: number
+  required_steps_total: number
+  overall_progress: number
+  roadmaps: LearningRoadmapProgress[]
+}
+
 export interface StudentDetail extends Student {
   roadmap_progress: StudentRoadmapSummary[]
 }
